@@ -3,20 +3,20 @@ OLX Monitor Bot
 ===============
 
 Aplikacja monitoruje wybrane adresy URL serwisu OLX, wykrywa nowe
-ogloszenia i wysyla powiadomienia przez Telegram.
+ogłoszenia i wysyła powiadomienia przez Telegram.
 
 Funkcje:
-- Skanowanie OLX z uzyciem curl_cffi (impersonate="chrome120"),
-  co pozwala uniknac blokad Cloudflare.
-- Nowoczesny panel administracyjny (Modern Dark / Glassmorphism)
-  pod adresem http://127.0.0.1:5000
-- Losowe interwaly miedzy skanowaniami (domyslnie 150-300 s).
-- Historia widzianych ofert w pliku seen_offers.json (bez duplikatow).
+- Skanowanie OLX z użyciem curl_cffi (impersonate="chrome120"),
+  co pozwala uniknąć blokad Cloudflare.
+- Panel administracyjny (ciemny motyw, tryb Operate) pod adresem
+  http://127.0.0.1:5000
+- Losowe interwały między skanowaniami (domyślnie 150-300 s).
+- Historia widzianych ofert w pliku seen_offers.json (bez duplikatów).
 - Konfiguracja zapisywana w pliku config.json.
-- Opcjonalne filtry slow kluczowych w tytulach ofert.
+- Opcjonalne filtry słów kluczowych w tytułach ofert.
 
-Zgodnosc:
-- Jesli curl_cffi nie jest dostepne (np. Android / Termux, gdzie nie ma
+Zgodność:
+- Jeśli curl_cffi nie jest dostępne (np. Android / Termux, gdzie nie ma
   gotowych paczek), program automatycznie korzysta z biblioteki requests.
 
 Uruchomienie:  python app.py
@@ -46,7 +46,7 @@ except ImportError:  # np. Android / Termux - brak gotowych paczek curl_cffi
 from flask import Flask, jsonify, redirect, render_template_string, request
 
 # ---------------------------------------------------------------------------
-# Stale i sciezki
+# Stałe i ścieżki
 # ---------------------------------------------------------------------------
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -54,9 +54,9 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 SEEN_PATH = os.path.join(BASE_DIR, "seen_offers.json")
 LOG_PATH = os.path.join(BASE_DIR, "bot.log")
 
-MAX_SEEN_OFFERS = 5000          # maksymalna liczba zapamietanych ofert
-MIN_INTERVAL = 30               # minimalny dozwolony interwal (sekundy)
-BROWSER_IMITATE = "chrome120"   # profil przegladarki dla curl_cffi
+MAX_SEEN_OFFERS = 5000          # maksymalna liczba zapamiętanych ofert
+MIN_INTERVAL = 30               # minimalny dozwolony interwał (sekundy)
+BROWSER_IMITATE = "chrome120"   # profil przeglądarki dla curl_cffi
 
 DEFAULT_CONFIG = {
     "telegram_bot_token": "",
@@ -71,7 +71,7 @@ DEFAULT_CONFIG = {
     "notify_first_scan": False,
 }
 
-LOG_LINES = deque(maxlen=300)    # ostatnie linie logu (wyswietlane w panelu)
+LOG_LINES = deque(maxlen=300)    # ostatnie linie logu (wyświetlane w panelu)
 
 STATUS = {
     "started_at": time.time(),
@@ -83,8 +83,8 @@ STATUS = {
     "last_error": None,
 }
 
-STOP_EVENT = threading.Event()      # sygnal zatrzymania watku skanera
-SCAN_NOW_EVENT = threading.Event()  # sygnal natychmiastowego skanu
+STOP_EVENT = threading.Event()      # sygnał zatrzymania wątku skanera
+SCAN_NOW_EVENT = threading.Event()  # sygnał natychmiastowego skanu
 SCANNER_ALIVE = threading.Event()   # informacja, czy skaner pracuje
 CONFIG_LOCK = threading.Lock()
 STATUS_LOCK = threading.Lock()
@@ -97,7 +97,7 @@ log = logging.getLogger("olxbot")
 
 
 class DequeHandler(logging.Handler):
-    """Handler logowania zapisujacy komunikaty do kolejki (na potrzeby GUI)."""
+    """Handler logowania zapisujący komunikaty do kolejki (na potrzeby GUI)."""
 
     ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -121,7 +121,7 @@ def setup_logging():
     root.setLevel(logging.INFO)
     root.handlers.clear()
 
-    # Ograniczamy gadatliwosc serwera Flask (zapytania HTTP nie zasmiecaja logu)
+    # Ograniczamy gadatliwość serwera Flask (zapytania HTTP nie zaśmiecają logu)
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
     console = logging.StreamHandler()
@@ -133,7 +133,7 @@ def setup_logging():
         file_handler.setFormatter(fmt)
         root.addHandler(file_handler)
     except OSError as exc:
-        log.warning("Nie mozna zapisac logu do pliku: %s", exc)
+        log.warning("Nie można zapisać logu do pliku: %s", exc)
 
     deque_handler = DequeHandler(LOG_LINES)
     deque_handler.setFormatter(fmt)
@@ -146,7 +146,7 @@ def setup_logging():
 
 
 def load_config():
-    """Wczytuje konfiguracje z pliku; w razie bledu zwraca wartosci domyslne."""
+    """Wczytuje konfigurację z pliku; w razie błędu zwraca wartości domyślne."""
     cfg = dict(DEFAULT_CONFIG)
     if not os.path.exists(CONFIG_PATH):
         return cfg
@@ -157,7 +157,7 @@ def load_config():
             cfg.update({k: v for k, v in data.items() if k in DEFAULT_CONFIG})
         return cfg
     except (OSError, ValueError) as exc:
-        log.warning("Blad odczytu config.json (%s). Uzywam ustawien domyslnych.", exc)
+        log.warning("Błąd odczytu config.json (%s). Używam ustawień domyślnych.", exc)
         backup_corrupt_config()
         return cfg
 
@@ -172,7 +172,7 @@ def backup_corrupt_config():
 
 
 def save_config(cfg):
-    """Zapisuje konfiguracje do pliku config.json."""
+    """Zapisuje konfigurację do pliku config.json."""
     merged = dict(DEFAULT_CONFIG)
     merged.update(cfg)
     with CONFIG_LOCK:
@@ -181,7 +181,7 @@ def save_config(cfg):
                 json.dump(merged, fh, ensure_ascii=False, indent=2)
             return True
         except OSError as exc:
-            log.error("Nie mozna zapisac config.json: %s", exc)
+            log.error("Nie można zapisać config.json: %s", exc)
             return False
 
 
@@ -191,7 +191,7 @@ def save_config(cfg):
 
 
 def load_seen():
-    """Wczytuje historie widzianych ofert oraz liste znanych adresow URL."""
+    """Wczytuje historię widzianych ofert oraz listę znanych adresów URL."""
     default = {"offers": {}, "known_urls": {}}
     if not os.path.exists(SEEN_PATH):
         return default
@@ -206,12 +206,12 @@ def load_seen():
         data.setdefault("known_urls", {})
         return data
     except (OSError, ValueError) as exc:
-        log.warning("Blad odczytu seen_offers.json (%s). Zaczynam od pustej historii.", exc)
+        log.warning("Błąd odczytu seen_offers.json (%s). Zaczynam od pustej historii.", exc)
         return default
 
 
 def save_seen(data):
-    """Zapisuje historie widzianych ofert (z ograniczeniem rozmiaru)."""
+    """Zapisuje historię widzianych ofert (z ograniczeniem rozmiaru)."""
     offers = data.get("offers", {})
     if len(offers) > MAX_SEEN_OFFERS:
         oldest_first = sorted(offers.items(), key=lambda item: item[1])
@@ -221,7 +221,7 @@ def save_seen(data):
         with open(SEEN_PATH, "w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False, indent=2)
     except OSError as exc:
-        log.error("Nie mozna zapisac seen_offers.json: %s", exc)
+        log.error("Nie można zapisać seen_offers.json: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -231,20 +231,20 @@ def save_seen(data):
 
 def http_request(method, url, **kwargs):
     """
-    Wykonuje zadanie HTTP z udawaniem przegladarki Chrome.
-    Jesli curl_cffi nie jest dostepne, korzysta z requests (bez imitacji TLS).
+    Wykonuje żądanie HTTP z udawaniem przeglądarki Chrome.
+    Jeśli curl_cffi nie jest dostępne, korzysta z requests (bez imitacji TLS).
     """
     if not HAS_CURL_CFFI:
         return http_client.request(method, url, **kwargs)
     try:
         return http_client.request(method, url, impersonate=BROWSER_IMITATE, **kwargs)
     except (ValueError, TypeError):
-        log.debug("Profil %s niedostepny - uzywam domyslnego profilu.", BROWSER_IMITATE)
+        log.debug("Profil %s niedostępny - używam domyślnego profilu.", BROWSER_IMITATE)
         return http_client.request(method, url, **kwargs)
 
 
 def fetch_html(page_url, timeout=30):
-    """Pobiera strone OLX jako tekst HTML."""
+    """Pobiera stronę OLX jako tekst HTML."""
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -268,19 +268,36 @@ def looks_like_block(html_text):
 
 
 def describe_http_error(exc):
-    """Zwraca czytelny opis bledu HTTP (z podpowiedzia dla uzytkownika)."""
+    """Zwraca czytelny opis błędu HTTP (z podpowiedzią dla użytkownika)."""
     status = getattr(getattr(exc, "response", None), "status_code", None)
     if status == 403:
         if HAS_CURL_CFFI:
-            return ("OLX odrzucil zapytanie (403). Zmniejsz liczbe adresow URL "
-                    "i zwieksz interwal skanowania.")
-        return ("OLX odrzucil zapytanie (403). Tryb zgodnosci bez curl_cffi "
-                "(np. Android/Termux) jest czesto blokowany - zalecany komputer lub VPS.")
+            return ("OLX odrzucił zapytanie (403). Zmniejsz liczbę adresów URL "
+                    "i zwiększ interwał skanowania.")
+        return ("OLX odrzucił zapytanie (403). Tryb zgodności bez curl_cffi "
+                "(np. Android/Termux) jest często blokowany — zalecany komputer lub VPS.")
     if status == 429:
-        return "Zbyt wiele zapytan (429). Zwieksz interwal skanowania."
+        return "Zbyt wiele zapytań (429). Zwiększ interwał skanowania."
     if status == 504:
-        return "OLX chwilowo nie odpowiada (504). Program ponowi probe automatycznie."
-    return f"Blad sieci: {exc}"
+        return "OLX chwilowo nie odpowiada (504). Program ponowi próbę automatycznie."
+    return f"Błąd sieci: {exc}"
+
+
+def describe_telegram_error(exc):
+    """Zamienia techniczny błąd Telegrama na zrozumiały komunikat."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    text = str(exc).lower()
+    if status == 401 or "unauthorized" in text or "401" in text:
+        return ("Nieprawidłowy token bota. Skopiuj token ponownie od @BotFather "
+                "i zapisz konfigurację.")
+    if status == 400 or "chat not found" in text:
+        return ("Nieprawidłowy Chat ID lub bot nie został jeszcze uruchomiony. "
+                "Wyślij /start do swojego bota i sprawdź Chat ID.")
+    if status == 403 or "blocked" in text or "forbidden" in text:
+        return "Bot został zablokowany — odblokuj go w Telegramie."
+    if "timed out" in text or "timeout" in text:
+        return "Przekroczono czas połączenia z Telegramem. Sprawdź połączenie z internetem."
+    return f"Błąd Telegrama: {exc}"
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +306,7 @@ def describe_http_error(exc):
 
 
 def set_page_param(url, page):
-    """Ustawia parametr ?page=N w adresie URL, zachowujac pozostale parametry."""
+    """Ustawia parametr ?page=N w adresie URL, zachowując pozostałe parametry."""
     parts = urlparse(url)
     query = parse_qs(parts.query, keep_blank_values=True)
     query["page"] = [str(page)]
@@ -298,8 +315,8 @@ def set_page_param(url, page):
 
 def extract_offers(html_text, page_url):
     """
-    Wyciaga oferty z osadzonego JSON-a (window.__PRERENDERED_STATE__).
-    Zwraca liste slownikow: id, title, price, location, url.
+    Wyciąga oferty z osadzonego JSON-a (window.__PRERENDERED_STATE__).
+    Zwraca listę słowników: id, title, price, location, url.
     """
     try:
         start = html_text.index("window.__PRERENDERED_STATE__")
@@ -313,7 +330,7 @@ def extract_offers(html_text, page_url):
         else:
             return []
     except (ValueError, json.JSONDecodeError) as exc:
-        log.debug("Nie udalo sie sparsowac danych strony: %s", exc)
+        log.debug("Nie udało się sparsować danych strony: %s", exc)
         return []
 
     ads = None
@@ -376,7 +393,7 @@ def extract_offers(html_text, page_url):
         offers.append(
             {
                 "id": offer_id or offer_url,
-                "title": title or "Brak tytulu",
+                "title": title or "Brak tytułu",
                 "price": str(price),
                 "location": ", ".join(location_parts),
                 "url": offer_url,
@@ -387,8 +404,8 @@ def extract_offers(html_text, page_url):
 
 def keyword_ok(title, cfg):
     """
-    Sprawdza, czy tytul przechodzi filtr slow kluczowych.
-    tryby: off (wylaczony), include (musi zawierac), exclude (nie moze zawierac).
+    Sprawdza, czy tytuł przechodzi filtr słów kluczowych.
+    tryby: off (wyłączony), include (musi zawierać), exclude (nie może zawierać).
     """
     words = [
         w.strip().lower()
@@ -412,31 +429,31 @@ def keyword_ok(title, cfg):
 
 
 def build_offer_message(offer):
-    """Buduje sformatowana wiadomosc HTML dla Telegrama."""
-    title = html.escape(offer.get("title") or "Brak tytulu")
+    """Buduje sformatowaną wiadomość HTML dla Telegrama."""
+    title = html.escape(offer.get("title") or "Brak tytułu")
     price = html.escape(offer.get("price") or "Nie podano")
     location = html.escape(offer.get("location") or "Nie podano")
     offer_url = html.escape(offer.get("url") or "")
     return (
-        "<b>Nowe ogloszenie na OLX!</b>\n\n"
-        f"<b>Tytul:</b> {title}\n"
+        "<b>Nowe ogłoszenie na OLX!</b>\n\n"
+        f"<b>Tytuł:</b> {title}\n"
         f"<b>Cena:</b> {price}\n"
         f"<b>Lokalizacja:</b> {location}\n\n"
-        f'<a href="{offer_url}">Zobacz ogloszenie</a>'
+        f'<a href="{offer_url}">Zobacz ogłoszenie</a>'
     )
 
 
 def build_offer_keyboard(offer):
-    """Buduje przycisk prowadzacy bezposrednio do oferty."""
+    """Buduje przycisk prowadzący bezpośrednio do oferty."""
     return {
         "inline_keyboard": [
-            [{"text": "Zobacz oferte", "url": offer.get("url") or ""}]
+            [{"text": "Zobacz ofertę", "url": offer.get("url") or ""}]
         ]
     }
 
 
 def send_telegram_message(cfg, text, reply_markup=None):
-    """Wysyla wiadomosc przez API Telegrama."""
+    """Wysyła wiadomość przez API Telegrama."""
     token = (cfg.get("telegram_bot_token") or "").strip()
     chat_id = (cfg.get("telegram_chat_id") or "").strip()
     if not token or not chat_id:
@@ -460,12 +477,12 @@ def send_telegram_message(cfg, text, reply_markup=None):
     response.raise_for_status()
     data = response.json()
     if not data.get("ok"):
-        raise RuntimeError(data.get("description") or "Nieznany blad Telegram API.")
+        raise RuntimeError(data.get("description") or "Nieznany błąd Telegram API.")
     return data
 
 
 def send_offer_notification(cfg, offer):
-    """Wysyla powiadomienie o nowej ofercie."""
+    """Wysyła powiadomienie o nowej ofercie."""
     send_telegram_message(
         cfg,
         build_offer_message(offer),
@@ -474,12 +491,12 @@ def send_offer_notification(cfg, offer):
 
 
 # ---------------------------------------------------------------------------
-# Skaner (watek w tle)
+# Skaner (wątek w tle)
 # ---------------------------------------------------------------------------
 
 
 class ScannerThread(threading.Thread):
-    """Watek cyklicznie skanujacy skonfigurowane adresy OLX."""
+    """Wątek cyklicznie skanujący skonfigurowane adresy OLX."""
 
     def __init__(self):
         super().__init__(daemon=True, name="olx-scanner")
@@ -491,7 +508,7 @@ class ScannerThread(threading.Thread):
             while not STOP_EVENT.is_set():
                 cfg = load_config()
                 if not cfg.get("urls"):
-                    log.info("Brak adresow URL w konfiguracji. Oczekiwanie 60 s...")
+                    log.info("Brak adresów URL w konfiguracji. Oczekiwanie 60 s...")
                     deadline = time.time() + 60
                     while time.time() < deadline and not STOP_EVENT.is_set():
                         if SCAN_NOW_EVENT.is_set():
@@ -502,14 +519,14 @@ class ScannerThread(threading.Thread):
                 try:
                     self.scan_once(cfg)
                 except Exception:
-                    log.exception("Nieoczekiwany blad podczas skanowania.")
+                    log.exception("Nieoczekiwany błąd podczas skanowania.")
                 self._sleep_with_abort(cfg)
         finally:
             SCANNER_ALIVE.clear()
             log.info("Skaner zatrzymany.")
 
     def _sleep_with_abort(self, cfg):
-        """Uspia watek na losowy czas, reagujac na zmiane konfiguracji."""
+        """Uśpia wątek na losowy czas, reagując na zmianę konfiguracji."""
         try:
             min_interval = max(MIN_INTERVAL, int(cfg.get("min_interval", 150)))
             max_interval = max(min_interval, int(cfg.get("max_interval", 300)))
@@ -529,7 +546,7 @@ class ScannerThread(threading.Thread):
             STOP_EVENT.wait(min(5.0, remaining))
 
     def scan_once(self, cfg):
-        """Wykonuje pojedynczy pelny skan wszystkich adresow URL."""
+        """Wykonuje pojedynczy pełny skan wszystkich adresów URL."""
         with STATUS_LOCK:
             STATUS["scanning_now"] = True
             STATUS["next_scan_in"] = None
@@ -550,12 +567,12 @@ class ScannerThread(threading.Thread):
                     message = describe_http_error(exc)
                     with STATUS_LOCK:
                         STATUS["last_error"] = message
-                    log.warning("Nie udalo sie pobrac %s (%s)", page_url, message)
+                    log.warning("Nie udało się pobrać %s (%s)", page_url, message)
                     break
 
                 if looks_like_block(page_html):
                     with STATUS_LOCK:
-                        STATUS["last_error"] = "OLX zablokowal zapytanie (Cloudflare/captcha)."
+                        STATUS["last_error"] = "OLX zablokował zapytanie (Cloudflare/captcha)."
                     log.warning("Prawdopodobna blokada Cloudflare dla %s", page_url)
                     break
 
@@ -584,11 +601,12 @@ class ScannerThread(threading.Thread):
                         with STATUS_LOCK:
                             STATUS["sent_total"] += 1
                         new_notifications += 1
-                        log.info("Wyslano powiadomienie: %s", offer["title"][:80])
+                        log.info("Wysłano powiadomienie: %s", offer["title"][:80])
                     except Exception as exc:
+                        message = describe_telegram_error(exc)
                         with STATUS_LOCK:
-                            STATUS["last_error"] = f"Telegram: {exc}"
-                        log.error("Blad wysylania do Telegrama: %s", exc)
+                            STATUS["last_error"] = message
+                        log.error("Błąd wysyłania do Telegrama: %s", message)
 
                 seen["known_urls"][url] = time.time()
                 if page < max_pages:
@@ -601,7 +619,7 @@ class ScannerThread(threading.Thread):
             STATUS["last_scan"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             STATUS["last_scan_found"] = new_notifications
         log.info(
-            "Skan zakonczony: sprawdzono %d ofert, nowych powiadomien: %d (czas: %.1f s)",
+            "Skan zakończony: sprawdzono %d ofert, nowych powiadomień: %d (czas: %.1f s)",
             checked,
             new_notifications,
             elapsed,
@@ -609,7 +627,7 @@ class ScannerThread(threading.Thread):
 
 
 # ---------------------------------------------------------------------------
-# Panel WWW (Flask) - Modern Dark / Glassmorphism
+# Panel WWW (Flask) - ciemny motyw w trybie Operate
 # ---------------------------------------------------------------------------
 
 app = Flask(__name__)
@@ -619,190 +637,198 @@ PANEL_HTML = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>OLX Monitor Bot</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%2310b981'/%3E%3Ccircle cx='11' cy='11' r='5.5' fill='none' stroke='%23052e2b' stroke-width='2'/%3E%3Cpath d='M11 11 15.5 6.5' stroke='%23052e2b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #0f172a;
-    --card: #1e293b;
+    --surface: #1e293b;
+    --field: #0b1220;
     --border: #334155;
     --text: #e2e8f0;
     --muted: #94a3b8;
-    --emerald: #10b981;
-    --cyan: #06b6d4;
-    --indigo: #6366f1;
-    --rose: #f43f5e;
+    --accent: #10b981;
+    --accent-strong: #34d399;
+    --accent-ink: #052e26;
+    --warn: #fbbf24;
+    --err: #fb7185;
+    --focus: #38bdf8;
+    --radius: 12px;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
+  html { background-color: var(--bg); }
   body {
     min-height: 100vh;
     background-color: var(--bg);
-    background-image:
-      radial-gradient(900px 520px at 10% -12%, rgba(16,185,129,.14), transparent 60%),
-      radial-gradient(900px 520px at 90% -6%, rgba(99,102,241,.16), transparent 60%),
-      radial-gradient(760px 520px at 50% 112%, rgba(6,182,212,.10), transparent 60%);
-    background-attachment: fixed;
     color: var(--text);
-    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
+    font-size: 15px;
+    line-height: 1.5;
   }
-  .page { max-width: 1240px; margin: 0 auto; padding: 28px 20px 44px; }
+  ::selection { background: rgba(16,185,129,.30); color: #f8fafc; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 26px 20px 44px; }
 
-  /* Naglowek */
+  /* Nagłówek */
   .topbar {
     display: flex; align-items: center; justify-content: space-between;
     gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
   }
-  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand { display: flex; align-items: center; gap: 13px; }
   .logo {
-    width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center;
-    background: linear-gradient(135deg, rgba(16,185,129,.95), rgba(6,182,212,.85));
-    box-shadow: 0 10px 26px -8px rgba(16,185,129,.55);
+    width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center;
+    background: rgba(16,185,129,.14); border: 1px solid rgba(16,185,129,.35);
   }
-  .logo svg { width: 24px; height: 24px; }
-  .brand h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  .logo svg { width: 22px; height: 22px; }
+  .brand h1 { font-size: 19px; margin: 0; letter-spacing: .1px; }
   .brand p { margin: 3px 0 0; font-size: 12.5px; color: var(--muted); }
 
   .pill {
-    display: inline-flex; align-items: center; gap: 9px; padding: 9px 15px;
+    display: inline-flex; align-items: center; gap: 9px; padding: 8px 14px;
     border-radius: 999px; font-size: 13px; font-weight: 600;
-    border: 1px solid var(--border); background: rgba(30,41,59,.72);
-    backdrop-filter: blur(10px); transition: color .2s, border-color .2s;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted);
   }
-  .pill .dot { width: 9px; height: 9px; border-radius: 50%; }
-  .pill.emerald { color: #6ee7b7; border-color: rgba(16,185,129,.45); }
-  .pill.emerald .dot { background: #10b981; box-shadow: 0 0 0 4px rgba(16,185,129,.16); }
-  .pill.cyan { color: #67e8f9; border-color: rgba(6,182,212,.5); }
-  .pill.cyan .dot { background: #06b6d4; animation: pulse 1.15s ease-in-out infinite; }
-  .pill.rose { color: #fda4af; border-color: rgba(244,63,94,.5); }
-  .pill.rose .dot { background: #f43f5e; box-shadow: 0 0 0 4px rgba(244,63,94,.16); }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: .35; transform: scale(.7); }
-  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .pill.ok { color: #6ee7b7; border-color: rgba(16,185,129,.5); }
+  .pill.busy { color: var(--warn); border-color: rgba(251,191,36,.5); }
+  .pill.busy .dot { animation: pulse 1.2s ease-in-out infinite; }
+  .pill.err { color: var(--err); border-color: rgba(251,113,133,.5); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 
-  /* Uklad */
+  /* Układ */
   .grid {
     display: grid; gap: 20px; align-items: start;
-    grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr);
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
   }
-  @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+  @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
 
   .card {
-    background: rgba(30,41,59,.72);
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    backdrop-filter: blur(14px);
-    box-shadow: 0 18px 44px -26px rgba(0,0,0,.95);
-    overflow: hidden;
+    border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgba(0,0,0,.35), 0 18px 40px -28px rgba(0,0,0,.85);
   }
   .card + .card { margin-top: 20px; }
   .card-head {
-    padding: 16px 20px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 15px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
   }
-  .card-head h2 {
-    margin: 0; font-size: 13.5px; letter-spacing: .8px;
-    text-transform: uppercase; color: #cbd5e1; font-weight: 700;
-  }
+  .card-head h2 { margin: 0; font-size: 15px; font-weight: 650; color: #e8edf5; }
+  .card-head .meta { font-size: 12px; color: var(--muted); }
   .card-body { padding: 20px; }
 
   /* Formularz */
-  .field { margin-bottom: 16px; }
+  .group { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .group:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .group-title { margin: 0 0 12px; font-size: 13.5px; font-weight: 650; color: #cbd5e1; }
+  .field { margin-bottom: 15px; }
   .field:last-child { margin-bottom: 0; }
   .label {
-    display: block; font-size: 12.5px; font-weight: 600;
-    color: var(--muted); margin-bottom: 7px; letter-spacing: .2px;
+    display: block; font-size: 13px; font-weight: 600;
+    color: var(--muted); margin-bottom: 7px;
   }
   .input, .select, .textarea {
-    width: 100%; padding: 11px 13px; border-radius: 10px;
-    background: #0f172a; color: var(--text);
+    width: 100%; padding: 10px 12px; border-radius: 10px;
+    background: var(--field); color: var(--text);
     border: 1px solid var(--border);
-    font-size: 13.5px; font-family: inherit; outline: none;
-    transition: border-color .15s, box-shadow .15s, background .15s;
+    font-size: 14px; font-family: inherit; outline: none;
+    caret-color: var(--accent);
+    transition: border-color .15s, box-shadow .15s;
   }
-  .textarea { resize: vertical; min-height: 138px; line-height: 1.5; }
+  .textarea { resize: vertical; min-height: 132px; line-height: 1.5; }
+  .input::placeholder, .textarea::placeholder { color: var(--muted); opacity: 1; }
   .input:focus, .select:focus, .textarea:focus {
-    border-color: var(--emerald);
-    box-shadow: 0 0 0 3px rgba(16,185,129,.18);
-    background: #0b1220;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(16,185,129,.22);
   }
-  .mono { font-family: "JetBrains Mono", Consolas, "SF Mono", Menlo, monospace; }
-  .hint { margin-top: 6px; font-size: 11.5px; color: #64748b; }
-  .row { display: grid; gap: 16px; }
+  .mono { font-family: ui-monospace, "JetBrains Mono", Consolas, Menlo, monospace; font-variant-numeric: tabular-nums; }
+  .hint { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+  .row { display: grid; gap: 15px; }
   .row-2 { grid-template-columns: 1fr 1fr; }
   .row-3 { grid-template-columns: repeat(3, 1fr); }
   @media (max-width: 620px) { .row-2, .row-3 { grid-template-columns: 1fr; } }
 
   .check {
-    display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px;
+    display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px;
     border: 1px solid var(--border); border-radius: 10px;
-    background: rgba(15,23,42,.6); margin-bottom: 10px; cursor: pointer;
+    background: var(--field); margin-bottom: 10px; cursor: pointer;
   }
   .check:last-of-type { margin-bottom: 0; }
-  .check input { width: 17px; height: 17px; margin-top: 1px; accent-color: var(--emerald); cursor: pointer; }
-  .check span { font-size: 13px; color: #cbd5e1; }
+  .check input { width: 17px; height: 17px; margin-top: 1px; accent-color: var(--accent); cursor: pointer; }
+  .check span { font-size: 13.5px; color: #cbd5e1; }
 
   /* Przyciski */
-  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
   .btn {
-    border: none; border-radius: 10px; padding: 11px 18px;
-    font-size: 13.5px; font-weight: 600; color: #fff; cursor: pointer;
-    font-family: inherit; transition: transform .12s, box-shadow .15s, filter .15s;
+    border-radius: 10px; padding: 10px 16px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; border: 1px solid transparent;
+    transition: background-color .15s, border-color .15s, color .15s;
   }
-  .btn:hover { transform: translateY(-1px); filter: brightness(1.07); }
-  .btn:active { transform: translateY(0); }
-  .btn-cyan { background: linear-gradient(135deg, #06b6d4, #0891b2); box-shadow: 0 10px 24px -12px rgba(6,182,212,.9); }
-  .btn-indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 10px 24px -12px rgba(99,102,241,.9); }
-  .btn-emerald { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 10px 24px -12px rgba(16,185,129,.9); }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-primary:hover { background: var(--accent-strong); }
+  .btn-secondary { background: transparent; border-color: var(--border); color: #cbd5e1; }
+  .btn-secondary:hover { background: rgba(148,163,184,.10); border-color: #475569; }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
 
   .feedback {
-    margin-top: 14px; padding: 12px 14px; border-radius: 10px;
-    font-size: 13px; display: none; border: 1px solid transparent;
+    margin-top: 14px; padding: 11px 13px; border-radius: 10px;
+    font-size: 13.5px; display: none; border: 1px solid transparent;
   }
   .feedback.show { display: block; }
-  .feedback.ok { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.4); color: #6ee7b7; }
-  .feedback.err { background: rgba(244,63,94,.12); border-color: rgba(244,63,94,.4); color: #fda4af; }
-  .feedback.info { background: rgba(6,182,212,.12); border-color: rgba(6,182,212,.4); color: #67e8f9; }
+  .feedback.ok { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.4); color: #a7f3d0; }
+  .feedback.err { background: rgba(251,113,133,.12); border-color: rgba(251,113,133,.45); color: #fecdd3; }
+  .feedback.info { background: rgba(56,189,248,.10); border-color: rgba(56,189,248,.4); color: #bae6fd; }
 
   /* Status */
   .stats { display: flex; flex-direction: column; }
   .stat {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 10px 0; border-bottom: 1px dashed rgba(51,65,85,.75); font-size: 13px;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+    padding: 10px 0; border-bottom: 1px solid rgba(51,65,85,.6); font-size: 13.5px;
   }
   .stat:last-child { border-bottom: none; }
   .stat .k { color: var(--muted); }
-  .stat .v { font-weight: 600; text-align: right; }
-  .stat .v.muted { color: #64748b; font-weight: 500; }
-  .stat .v.warn { color: #fcd34d; font-weight: 500; }
+  .stat .v { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+  .stat .v.quiet { color: var(--muted); font-weight: 500; }
+  .stat .v.warn { color: var(--warn); font-weight: 500; }
   .badge {
-    font-size: 11.5px; font-weight: 700; padding: 4px 10px;
-    border-radius: 999px; letter-spacing: .3px;
+    font-size: 12px; font-weight: 650; padding: 3px 9px;
+    border-radius: 999px;
   }
-  .badge.ok { background: rgba(16,185,129,.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,.4); }
+  .badge.ok { background: rgba(16,185,129,.15); color: #a7f3d0; border: 1px solid rgba(16,185,129,.4); }
   .badge.off { background: rgba(148,163,184,.12); color: #cbd5e1; border: 1px solid rgba(148,163,184,.3); }
 
-  /* Terminal logow */
+  /* Terminal logów */
   .terminal {
-    background: #0b1120; border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px; height: 340px; overflow-y: auto;
-    font-family: "JetBrains Mono", Consolas, "SF Mono", Menlo, monospace;
-    font-size: 12px; line-height: 1.7;
+    background: var(--field); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px; height: 330px; overflow-y: auto;
+    font-family: ui-monospace, "JetBrains Mono", Consolas, Menlo, monospace;
+    font-size: 12.5px; line-height: 1.7;
+    font-variant-numeric: tabular-nums;
   }
-  .terminal .ln { white-space: pre-wrap; word-break: break-word; color: #94a3b8; }
-  .terminal .ln.ok { color: #6ee7b7; }
-  .terminal .ln.warn { color: #fcd34d; }
-  .terminal .ln.error { color: #fda4af; }
+  .terminal .ln { white-space: pre-wrap; word-break: break-word; color: #cbd5e1; }
+  .terminal .ln.ok { color: #a7f3d0; }
+  .terminal .ln.warn { color: var(--warn); }
+  .terminal .ln.error { color: var(--err); }
   .terminal::-webkit-scrollbar { width: 9px; }
   .terminal::-webkit-scrollbar-thumb { background: #334155; border-radius: 6px; }
   .terminal::-webkit-scrollbar-track { background: transparent; }
+  .live { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s infinite; }
 
-  .live { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: #64748b; text-transform: none; letter-spacing: 0; }
-  .live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); animation: pulse 1.6s infinite; }
+  footer { margin-top: 22px; font-size: 12.5px; color: var(--muted); }
+  footer code { color: #cbd5e1; font-family: ui-monospace, Consolas, Menlo, monospace; }
 
-  footer { margin-top: 22px; font-size: 12px; color: #64748b; }
-  footer code { color: #94a3b8; }
+  /* Dostępność */
+  .btn:focus-visible, .input:focus-visible, .select:focus-visible,
+  .textarea:focus-visible, .check input:focus-visible {
+    outline: 2px solid var(--focus); outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -810,21 +836,21 @@ PANEL_HTML = """<!doctype html>
 
   <div class="topbar">
     <div class="brand">
-      <div class="logo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#0b1220" stroke-width="2.2"
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="9"></circle>
-          <circle cx="12" cy="12" r="4.4"></circle>
-          <path d="M12 12 19 5"></path>
+          <circle cx="12" cy="12" r="8.5"></circle>
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 12 18.5 5.5"></path>
         </svg>
       </div>
       <div>
         <h1>OLX Monitor Bot</h1>
-        <p>Panel dziala lokalnie (127.0.0.1) &middot; przegladarke mozesz zamknac - bot pracuje dalej</p>
+        <p>Panel działa lokalnie (127.0.0.1) &middot; przeglądarkę możesz zamknąć — bot pracuje dalej</p>
       </div>
     </div>
-    <div class="pill emerald" id="status-pill">
-      <span class="dot"></span><span id="status-text">Oczekuje</span>
+    <div class="pill" id="status-pill" role="status" aria-live="polite">
+      <span class="dot"></span><span id="status-text">Łączenie…</span>
     </div>
   </div>
 
@@ -835,65 +861,77 @@ PANEL_HTML = """<!doctype html>
       <div class="card">
         <div class="card-head"><h2>Konfiguracja</h2></div>
         <div class="card-body">
-          <form method="post" action="/save">
-            <div class="row row-2">
-              <div class="field">
-                <label class="label" for="f-token">Token bota Telegram</label>
-                <input id="f-token" class="input mono" type="text" name="telegram_bot_token"
-                       value="{{ cfg.telegram_bot_token }}" placeholder="123456789:AAF...">
-              </div>
-              <div class="field">
-                <label class="label" for="f-chat">Chat ID</label>
-                <input id="f-chat" class="input mono" type="text" name="telegram_chat_id"
-                       value="{{ cfg.telegram_chat_id }}" placeholder="123456789">
+          <form method="post" action="/save" id="config-form">
+
+            <div class="group">
+              <h3 class="group-title">Telegram</h3>
+              <div class="row row-2">
+                <div class="field">
+                  <label class="label" for="f-token">Token bota</label>
+                  <input id="f-token" class="input mono" type="text" name="telegram_bot_token"
+                         value="{{ cfg.telegram_bot_token }}" placeholder="123456789:AAF…" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label class="label" for="f-chat">Chat ID</label>
+                  <input id="f-chat" class="input mono" type="text" name="telegram_chat_id"
+                         value="{{ cfg.telegram_chat_id }}" placeholder="123456789" inputmode="numeric" autocomplete="off">
+                </div>
               </div>
             </div>
 
-            <div class="field">
-              <label class="label" for="f-urls">Adresy URL z OLX (jeden na linie)</label>
-              <textarea id="f-urls" class="textarea mono" name="urls"
-                        placeholder="https://www.olx.pl/elektronika/q-iphone/?search%5Border%5D=created_at%3Adesc">{{ cfg.urls | join('\n') }}</textarea>
-              <div class="hint">Wklej linki skopiowane z OLX wraz z filtrami (cena, promien, sortowanie od najnowszych).</div>
-            </div>
-
-            <div class="row row-2">
+            <div class="group">
+              <h3 class="group-title">Wyszukiwania OLX</h3>
               <div class="field">
-                <label class="label" for="f-keywords">Slowa kluczowe (opcjonalnie, po przecinku)</label>
-                <input id="f-keywords" class="input" type="text" name="keywords"
-                       value="{{ cfg.keywords }}" placeholder="np. iphone, nieuszkodzony">
+                <label class="label" for="f-urls">Adresy URL (jeden na linię)</label>
+                <textarea id="f-urls" class="textarea mono" name="urls"
+                          placeholder="Wklej link skopiowany z paska adresu OLX…">{{ cfg.urls | join('\n') }}</textarea>
+                <div class="hint">Skopiuj adres z OLX razem z filtrami (cena, promień, sortowanie od najnowszych).</div>
               </div>
-              <div class="field">
-                <label class="label" for="f-mode">Tryb filtra slow kluczowych</label>
-                <select id="f-mode" class="select" name="keyword_mode">
-                  <option value="off" {% if cfg.keyword_mode == 'off' %}selected{% endif %}>Wylaczony</option>
-                  <option value="include" {% if cfg.keyword_mode == 'include' %}selected{% endif %}>Zawiera (tylko oferty z tym slowem)</option>
-                  <option value="exclude" {% if cfg.keyword_mode == 'exclude' %}selected{% endif %}>Nie zawiera (pomija oferty z tym slowem)</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="row row-3">
-              <div class="field">
-                <label class="label" for="f-min">Min. interwal (s)</label>
-                <input id="f-min" class="input" type="number" name="min_interval" min="30"
-                       value="{{ cfg.min_interval }}">
-              </div>
-              <div class="field">
-                <label class="label" for="f-max">Maks. interwal (s)</label>
-                <input id="f-max" class="input" type="number" name="max_interval" min="30"
-                       value="{{ cfg.max_interval }}">
-              </div>
-              <div class="field">
-                <label class="label" for="f-pages">Liczba stron</label>
-                <input id="f-pages" class="input" type="number" name="max_pages" min="1" max="10"
-                       value="{{ cfg.max_pages }}">
+              <div class="row row-2">
+                <div class="field">
+                  <label class="label" for="f-keywords">Słowa kluczowe</label>
+                  <input id="f-keywords" class="input" type="text" name="keywords"
+                         value="{{ cfg.keywords }}" placeholder="np. iphone, nieuszkodzony">
+                  <div class="hint">Oddziel przecinkami. Puste pole wyłącza filtr.</div>
+                </div>
+                <div class="field">
+                  <label class="label" for="f-mode">Tryb filtra</label>
+                  <select id="f-mode" class="select" name="keyword_mode">
+                    <option value="off" {% if cfg.keyword_mode == 'off' %}selected{% endif %}>Wyłączony</option>
+                    <option value="include" {% if cfg.keyword_mode == 'include' %}selected{% endif %}>Zawiera</option>
+                    <option value="exclude" {% if cfg.keyword_mode == 'exclude' %}selected{% endif %}>Nie zawiera</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div class="field">
+            <div class="group">
+              <h3 class="group-title">Harmonogram</h3>
+              <div class="row row-3">
+                <div class="field">
+                  <label class="label" for="f-min">Min. interwał (s)</label>
+                  <input id="f-min" class="input" type="number" name="min_interval" min="30"
+                         value="{{ cfg.min_interval }}">
+                </div>
+                <div class="field">
+                  <label class="label" for="f-max">Maks. interwał (s)</label>
+                  <input id="f-max" class="input" type="number" name="max_interval" min="30"
+                         value="{{ cfg.max_interval }}">
+                </div>
+                <div class="field">
+                  <label class="label" for="f-pages">Liczba stron</label>
+                  <input id="f-pages" class="input" type="number" name="max_pages" min="1" max="10"
+                         value="{{ cfg.max_pages }}">
+                </div>
+              </div>
+              <div class="hint">Program losuje odstęp między skanami z tego przedziału. Minimum to 30 s.</div>
+            </div>
+
+            <div class="group">
+              <h3 class="group-title">Opcje powiadomień</h3>
               <label class="check">
                 <input type="checkbox" name="telegram_enabled" {% if cfg.telegram_enabled %}checked{% endif %}>
-                <span>Wysylaj powiadomienia Telegram</span>
+                <span>Wysyłaj powiadomienia Telegram</span>
               </label>
               <label class="check">
                 <input type="checkbox" name="notify_first_scan" {% if cfg.notify_first_scan %}checked{% endif %}>
@@ -902,12 +940,12 @@ PANEL_HTML = """<!doctype html>
             </div>
 
             <div class="actions">
-              <button type="submit" class="btn btn-cyan">Zapisz konfiguracje</button>
-              <button type="button" class="btn btn-indigo" onclick="postAction('/test')">Test wiadomosci Telegram</button>
-              <button type="button" class="btn btn-emerald" onclick="postAction('/scan_now')">Skanuj teraz</button>
+              <button type="submit" class="btn btn-primary">Zapisz konfigurację</button>
+              <button type="button" class="btn btn-secondary" onclick="runAction('/test')">Test wiadomości</button>
+              <button type="button" class="btn btn-secondary" onclick="runAction('/scan_now')">Skanuj teraz</button>
             </div>
 
-            <div id="action-feedback" class="feedback"></div>
+            <div id="action-feedback" class="feedback" role="status" aria-live="polite"></div>
           </form>
         </div>
       </div>
@@ -917,28 +955,28 @@ PANEL_HTML = """<!doctype html>
     <section>
       <div class="card">
         <div class="card-head"><h2>Status</h2></div>
-        <div class="card-body">
+        <div class="card-body" aria-label="Status monitorowania">
           <div class="stats">
-            <div class="stat"><span class="k">Ostatni skan</span><span class="v muted" id="st-last-scan">-</span></div>
-            <div class="stat"><span class="k">Nowe oferty w ostatnim skanie</span><span class="v" id="st-last-found">-</span></div>
-            <div class="stat"><span class="k">Nastepny skan za</span><span class="v mono" id="st-next">-</span></div>
-            <div class="stat"><span class="k">Zapamietane oferty</span><span class="v" id="st-seen">-</span></div>
-            <div class="stat"><span class="k">Wyslane powiadomienia</span><span class="v" id="st-sent">-</span></div>
-            <div class="stat"><span class="k">Liczba adresow URL</span><span class="v" id="st-urls">-</span></div>
-            <div class="stat"><span class="k">Status Telegrama</span><span class="v"><span id="st-tg" class="badge off">-</span></span></div>
-            <div class="stat"><span class="k">Czas dzialania</span><span class="v mono" id="st-uptime">-</span></div>
-            <div class="stat"><span class="k">Ostatni blad</span><span class="v muted" id="st-error">-</span></div>
+            <div class="stat"><span class="k">Ostatni skan</span><span class="v quiet" id="st-last-scan">—</span></div>
+            <div class="stat"><span class="k">Nowe oferty w ostatnim skanie</span><span class="v" id="st-last-found">—</span></div>
+            <div class="stat"><span class="k">Następny skan za</span><span class="v mono" id="st-next">—</span></div>
+            <div class="stat"><span class="k">Zapamiętane oferty</span><span class="v" id="st-seen">—</span></div>
+            <div class="stat"><span class="k">Wysłane powiadomienia</span><span class="v" id="st-sent">—</span></div>
+            <div class="stat"><span class="k">Liczba adresów URL</span><span class="v" id="st-urls">—</span></div>
+            <div class="stat"><span class="k">Status Telegrama</span><span class="v"><span id="st-tg" class="badge off">—</span></span></div>
+            <div class="stat"><span class="k">Czas działania</span><span class="v mono" id="st-uptime">—</span></div>
+            <div class="stat"><span class="k">Ostatni błąd</span><span class="v quiet" id="st-error">—</span></div>
           </div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-head">
-          <h2>Dziennik zdarzen</h2>
-          <span class="live"><span class="dot"></span>na zywo</span>
+          <h2>Dziennik zdarzeń</h2>
+          <span class="live"><span class="dot"></span>na żywo</span>
         </div>
         <div class="card-body">
-          <div id="log-box" class="terminal">Ladowanie logu...</div>
+          <div id="log-box" class="terminal" role="log" aria-live="polite" aria-label="Dziennik zdarzeń">Ładowanie logu…</div>
         </div>
       </div>
     </section>
@@ -949,46 +987,36 @@ PANEL_HTML = """<!doctype html>
     Historia ofert: <code>seen_offers.json</code> &middot;
     Konfiguracja: <code>config.json</code> &middot;
     Log: <code>bot.log</code><br>
-    Mozesz zamknac te przegladarke - bot dziala dalej w tle.
-    Zatrzymanie: <code>stop.sh</code> (macOS/Linux) lub <code>stop.bat</code> (Windows).
+    Zatrzymanie bota: <code>stop.sh</code> (macOS/Linux) lub <code>stop.bat</code> (Windows).
   </footer>
 </div>
 
 <script>
   const $ = (id) => document.getElementById(id);
-  const SAVED = {{ 'true' if saved else 'false' }};
+  const SAVE_STATE = {{ save_state | tojson }};
+  let lastLogs = '';
 
-  function fmtSecs(s) {
-    if (s === null || s === undefined) return '-';
+  function fmtDuration(s) {
+    if (s === null || s === undefined) return '—';
     s = Math.max(0, Math.floor(s));
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
     const sec = s % 60;
-    const mm = String(m).padStart(2, '0');
-    const ss = String(sec).padStart(2, '0');
-    return h > 0 ? h + ':' + mm + ':' + ss : m + ':' + ss;
+    if (h > 0) return h + ' godz. ' + m + ' min';
+    if (m > 0) return m + ' min ' + sec + ' s';
+    return sec + ' s';
   }
 
-  function setStatus(d) {
+  function setStatus(state, label) {
     const pill = $('status-pill');
-    const text = $('status-text');
-    let cls = 'emerald';
-    let label = 'Oczekuje';
-    if (!d.scanner_running) {
-      cls = 'rose';
-      label = 'Zatrzymany';
-    } else if (d.scanning_now) {
-      cls = 'cyan';
-      label = 'Skanowanie...';
-    }
-    pill.className = 'pill ' + cls;
-    text.textContent = label;
+    pill.className = 'pill' + (state ? ' ' + state : '');
+    $('status-text').textContent = label;
   }
 
   function renderLogs(lines) {
     const box = $('log-box');
     const nearBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 48;
-    box.innerHTML = '';
+    const frag = document.createDocumentFragment();
     lines.forEach(function (line) {
       const el = document.createElement('div');
       el.className = 'ln';
@@ -996,29 +1024,10 @@ PANEL_HTML = """<!doctype html>
       else if (line.indexOf('| WARNING |') !== -1) el.classList.add('warn');
       else if (line.indexOf('| INFO |') !== -1) el.classList.add('ok');
       el.textContent = line;
-      box.appendChild(el);
+      frag.appendChild(el);
     });
+    box.replaceChildren(frag);
     if (nearBottom) box.scrollTop = box.scrollHeight;
-  }
-
-  async function refresh() {
-    try {
-      const r = await fetch('/api/status');
-      const d = await r.json();
-      setStatus(d);
-      $('st-last-scan').textContent = d.last_scan || 'jeszcze nie bylo';
-      $('st-last-found').textContent = d.last_scan_found;
-      $('st-next').textContent = fmtSecs(d.next_scan_in);
-      $('st-seen').textContent = d.seen_count;
-      $('st-sent').textContent = d.sent_total;
-      $('st-urls').textContent = d.urls_count;
-      $('st-uptime').textContent = fmtSecs(d.uptime);
-      $('st-error').textContent = d.last_error || 'brak';
-      const tg = $('st-tg');
-      tg.textContent = d.telegram_configured ? 'Skonfigurowany' : 'Brak danych';
-      tg.className = 'badge ' + (d.telegram_configured ? 'ok' : 'off');
-      renderLogs(d.logs);
-    } catch (e) { /* serwer chwilowo niedostepny */ }
   }
 
   function feedback(message, kind) {
@@ -1027,18 +1036,82 @@ PANEL_HTML = """<!doctype html>
     box.textContent = message;
   }
 
-  async function postAction(url) {
-    feedback('Wykonywanie...', 'info');
+  async function refresh() {
+    let d;
+    try {
+      const r = await fetch('/api/status');
+      d = await r.json();
+    } catch (e) {
+      setStatus('err', 'Brak połączenia');
+      return;
+    }
+    if (!d.scanner_running) setStatus('err', 'Zatrzymany');
+    else if (d.scanning_now) setStatus('busy', 'Skanowanie…');
+    else setStatus('ok', 'Oczekuje');
+
+    $('st-last-scan').textContent = d.last_scan || 'jeszcze nie było';
+    $('st-last-found').textContent = d.last_scan_found;
+    $('st-next').textContent = fmtDuration(d.next_scan_in);
+    $('st-seen').textContent = d.seen_count;
+    $('st-sent').textContent = d.sent_total;
+    $('st-urls').textContent = d.urls_count;
+    $('st-uptime').textContent = fmtDuration(d.uptime);
+    $('st-error').textContent = d.last_error || 'brak';
+
+    const tg = $('st-tg');
+    tg.textContent = d.telegram_configured ? 'Skonfigurowany' : 'Brak danych';
+    tg.className = 'badge ' + (d.telegram_configured ? 'ok' : 'off');
+
+    const text = d.logs.join('\n');
+    if (text !== lastLogs) {
+      lastLogs = text;
+      renderLogs(d.logs);
+    }
+  }
+
+  function formPayload() {
+    const fd = new FormData();
+    fd.append('telegram_bot_token', $('f-token').value);
+    fd.append('telegram_chat_id', $('f-chat').value);
+    fd.append('urls', $('f-urls').value);
+    fd.append('keywords', $('f-keywords').value);
+    fd.append('keyword_mode', $('f-mode').value);
+    fd.append('min_interval', $('f-min').value);
+    fd.append('max_interval', $('f-max').value);
+    fd.append('max_pages', $('f-pages').value);
+    if (document.querySelector('input[name="telegram_enabled"]').checked) fd.append('telegram_enabled', 'on');
+    if (document.querySelector('input[name="notify_first_scan"]').checked) fd.append('notify_first_scan', 'on');
+    fd.append('ajax', '1');
+    return fd;
+  }
+
+  async function runAction(url) {
+    feedback('Zapisywanie zmian…', 'info');
+    let saved;
+    try {
+      const r = await fetch('/save', { method: 'POST', body: formPayload() });
+      saved = await r.json();
+    } catch (e) {
+      feedback('Nie udało się połączyć z serwerem.', 'err');
+      return;
+    }
+    if (!saved.ok) {
+      feedback(saved.message || 'Nie udało się zapisać konfiguracji.', 'err');
+      return;
+    }
+    feedback('Wykonywanie…', 'info');
     try {
       const r = await fetch(url, { method: 'POST' });
       const d = await r.json();
       feedback(d.message, d.ok ? 'ok' : 'err');
     } catch (e) {
-      feedback('Blad polaczenia z serwerem.', 'err');
+      feedback('Nie udało się połączyć z serwerem.', 'err');
     }
   }
 
-  if (SAVED) feedback('Konfiguracja zostala zapisana.', 'ok');
+  if (SAVE_STATE === '1') feedback('Konfiguracja została zapisana.', 'ok');
+  else if (SAVE_STATE === '0') feedback('Nie udało się zapisać konfiguracji.', 'err');
+  if (SAVE_STATE !== null) history.replaceState(null, '', '/');
 
   setInterval(refresh, 5000);
   refresh();
@@ -1049,7 +1122,7 @@ PANEL_HTML = """<!doctype html>
 
 
 def to_int(value, default, lo, hi):
-    """Bezpieczna konwersja na int z obcieciem do przedzialu [lo, hi]."""
+    """Bezpieczna konwersja na int z obcięciem do przedziału [lo, hi]."""
     try:
         number = int(str(value).strip())
     except (TypeError, ValueError):
@@ -1059,15 +1132,15 @@ def to_int(value, default, lo, hi):
 
 @app.get("/")
 def index():
-    """Glowna strona panelu."""
+    """Główna strona panelu."""
     cfg = load_config()
-    saved = request.args.get("saved") == "1"
-    return render_template_string(PANEL_HTML, cfg=cfg, saved=saved)
+    save_state = request.args.get("saved")
+    return render_template_string(PANEL_HTML, cfg=cfg, save_state=save_state)
 
 
 @app.post("/save")
 def save():
-    """Zapisuje konfiguracje przeslana z formularza."""
+    """Zapisuje konfigurację przesłaną z formularza."""
     cfg = load_config()
     cfg["telegram_bot_token"] = request.form.get("telegram_bot_token", "").strip()
     cfg["telegram_chat_id"] = request.form.get("telegram_chat_id", "").strip()
@@ -1088,46 +1161,55 @@ def save():
     cfg["telegram_enabled"] = request.form.get("telegram_enabled") == "on"
     cfg["notify_first_scan"] = request.form.get("notify_first_scan") == "on"
 
-    if save_config(cfg):
+    ok = save_config(cfg)
+    if ok:
         log.info(
-            "Konfiguracja zapisana (URL: %d, interwal: %d-%d s, strony: %d).",
+            "Konfiguracja zapisana (URL: %d, interwał: %d-%d s, strony: %d).",
             len(cfg["urls"]),
             cfg["min_interval"],
             cfg["max_interval"],
             cfg["max_pages"],
         )
-        return redirect("/?saved=1")
-    return redirect("/?saved=0")
+    else:
+        log.error("Nie udało się zapisać konfiguracji.")
+
+    if request.form.get("ajax") == "1":
+        return jsonify(
+            ok=ok,
+            message="Konfiguracja została zapisana." if ok else "Nie udało się zapisać konfiguracji.",
+        )
+    return redirect("/?saved=1" if ok else "/?saved=0")
 
 
 @app.post("/test")
 def test_telegram():
-    """Wysyla testowa wiadomosc do Telegrama."""
+    """Wysyła testową wiadomość do Telegrama."""
     cfg = load_config()
     if not (cfg.get("telegram_bot_token") and cfg.get("telegram_chat_id")):
         return jsonify(
             ok=False,
-            message="Uzupelnij Token bota i Chat ID, zapisz konfiguracje "
-                    "i wyslij /start do swojego bota w Telegramie.",
+            message="Uzupełnij Token bota i Chat ID, zapisz konfigurację "
+                    "i wyślij /start do swojego bota w Telegramie.",
         )
     try:
         send_telegram_message(
             cfg,
-            "<b>Test powiadomien OLX Monitor Bot</b>\n\n"
-            "Polaczenie dziala poprawnie.",
+            "<b>Test powiadomień OLX Monitor Bot</b>\n\n"
+            "Połączenie działa poprawnie.",
         )
-        log.info("Testowa wiadomosc Telegram wyslana pomyslnie.")
-        return jsonify(ok=True, message="Wiadomosc testowa wyslana. Sprawdz Telegram.")
+        log.info("Testowa wiadomość Telegram wysłana pomyślnie.")
+        return jsonify(ok=True, message="Wiadomość testowa wysłana. Sprawdź Telegram.")
     except Exception as exc:
-        log.error("Test Telegram nieudany: %s", exc)
-        return jsonify(ok=False, message=f"Blad: {exc}")
+        message = describe_telegram_error(exc)
+        log.error("Test Telegram nieudany: %s", message)
+        return jsonify(ok=False, message=message)
 
 
 @app.post("/scan_now")
 def scan_now():
     """Wymusza natychmiastowy skan."""
     SCAN_NOW_EVENT.set()
-    return jsonify(ok=True, message="Skan zostanie uruchomiony za chwile.")
+    return jsonify(ok=True, message="Skan zostanie uruchomiony za chwilę.")
 
 
 @app.get("/api/status")
@@ -1154,7 +1236,7 @@ def api_status():
 
 @app.get("/favicon.ico")
 def favicon():
-    """Pusty favicon (unikanie wpisow 404 w logu)."""
+    """Pusty favicon (unikanie wpisów 404 w logu)."""
     return "", 204
 
 
@@ -1180,15 +1262,15 @@ def find_free_port(start=5000, count=6):
 
 
 def main():
-    """Punkt wejscia aplikacji."""
+    """Punkt wejścia aplikacji."""
     setup_logging()
     log.info("Uruchamianie OLX Monitor Bot...")
     if HAS_CURL_CFFI:
-        log.info("Klient HTTP: curl_cffi (imitacja przegladarki %s).", BROWSER_IMITATE)
+        log.info("Klient HTTP: curl_cffi (imitacja przeglądarki %s).", BROWSER_IMITATE)
     else:
         log.warning(
-            "Klient HTTP: requests (curl_cffi niedostepne - tryb zgodnosci, "
-            "np. Android/Termux). OLX moze czesciej stosowac blokady."
+            "Klient HTTP: requests (curl_cffi niedostępne - tryb zgodności, "
+            "np. Android/Termux). OLX może częściej stosować blokady."
         )
 
     scanner = ScannerThread()
@@ -1200,7 +1282,7 @@ def main():
         "============================================================",
         "  OLX Monitor Bot",
         f"  Panel administracyjny:  http://127.0.0.1:{port}",
-        "  Aby zatrzymac aplikacje nacisnij Ctrl+C",
+        "  Aby zatrzymać aplikację naciśnij Ctrl+C",
         "============================================================",
     ]
     print("\n".join(banner))
