@@ -9,6 +9,12 @@ seen_offers.json
 bot.log
 bot.pid
 
+# Artefakty narzędziowe (nie publikujemy w repo)
+DESIGN.md
+PRODUCT.md
+.impeccable/
+.claude/
+
 # System
 .DS_Store
 Thumbs.db
