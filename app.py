@@ -391,6 +391,19 @@ def extract_offers(html_text, page_url):
         relative_url = (ad.get("url") or "").strip()
         offer_url = relative_url if relative_url.startswith("http") else urljoin(base_url + "/", relative_url)
 
+        photo = ""
+        raw_photos = ad.get("photos")
+        if isinstance(raw_photos, list):
+            for item in raw_photos:
+                if isinstance(item, str) and item.startswith("http"):
+                    photo = item
+                    break
+                if isinstance(item, dict):
+                    candidate = item.get("url") or item.get("link") or item.get("src")
+                    if candidate:
+                        photo = candidate
+                        break
+
         offers.append(
             {
                 "id": offer_id or offer_url,
@@ -398,6 +411,7 @@ def extract_offers(html_text, page_url):
                 "price": str(price),
                 "location": ", ".join(location_parts),
                 "url": offer_url,
+                "photo": photo,
             }
         )
     return offers
@@ -429,17 +443,28 @@ def keyword_ok(title, cfg):
 # ---------------------------------------------------------------------------
 
 
+def telegram_credentials(cfg):
+    """Zwraca (token, chat_id) lub zgłasza błąd, gdy brakuje konfiguracji."""
+    token = (cfg.get("telegram_bot_token") or "").strip()
+    chat_id = (cfg.get("telegram_chat_id") or "").strip()
+    if not token or not chat_id:
+        raise RuntimeError("Brak tokenu bota lub Chat ID w konfiguracji.")
+    return token, chat_id
+
+
 def build_offer_message(offer):
-    """Buduje sformatowaną wiadomość HTML dla Telegrama."""
+    """Buduje sformatowany podpis (HTML) dla Telegrama."""
     title = html.escape(offer.get("title") or "Brak tytułu")
     price = html.escape(offer.get("price") or "Nie podano")
     location = html.escape(offer.get("location") or "Nie podano")
     offer_url = html.escape(offer.get("url") or "")
     return (
-        "<b>Nowe ogłoszenie na OLX!</b>\n\n"
-        f"<b>Tytuł:</b> {title}\n"
-        f"<b>Cena:</b> {price}\n"
-        f"<b>Lokalizacja:</b> {location}\n\n"
+        "<b>Nowe ogłoszenie na OLX</b>\n"
+        "\n"
+        f"<b>{title}</b>\n"
+        f"Cena: <b>{price}</b>\n"
+        f"Lokalizacja: {location}\n"
+        "\n"
         f'<a href="{offer_url}">Zobacz ogłoszenie</a>'
     )
 
@@ -448,32 +473,18 @@ def build_offer_keyboard(offer):
     """Buduje przycisk prowadzący bezpośrednio do oferty."""
     return {
         "inline_keyboard": [
-            [{"text": "Zobacz ofertę", "url": offer.get("url") or ""}]
+            [{"text": "Otwórz na OLX", "url": offer.get("url") or ""}]
         ]
     }
 
 
-def send_telegram_message(cfg, text, reply_markup=None):
-    """Wysyła wiadomość przez API Telegrama."""
-    token = (cfg.get("telegram_bot_token") or "").strip()
-    chat_id = (cfg.get("telegram_chat_id") or "").strip()
-    if not token or not chat_id:
-        raise RuntimeError("Brak tokenu bota lub Chat ID w konfiguracji.")
-
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": False,
-    }
-    if reply_markup:
-        payload["reply_markup"] = json.dumps(reply_markup)
-
+def _telegram_response(token, method, payload, timeout=20):
+    """Wysyła żądanie do Bot API i sprawdza odpowiedź."""
     response = http_request(
         "POST",
-        f"https://api.telegram.org/bot{token}/sendMessage",
+        f"https://api.telegram.org/bot{token}/{method}",
         json=payload,
-        timeout=20,
+        timeout=timeout,
     )
     response.raise_for_status()
     data = response.json()
@@ -482,13 +493,48 @@ def send_telegram_message(cfg, text, reply_markup=None):
     return data
 
 
+def send_telegram_message(cfg, text, reply_markup=None):
+    """Wysyła wiadomość tekstową przez API Telegrama."""
+    token, chat_id = telegram_credentials(cfg)
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": False,
+    }
+    if reply_markup:
+        payload["reply_markup"] = json.dumps(reply_markup)
+    return _telegram_response(token, "sendMessage", payload)
+
+
+def send_telegram_photo(cfg, photo_url, caption, reply_markup=None):
+    """Wysyła zdjęcie z podpisem i opcjonalnym przyciskiem przez API Telegrama."""
+    token, chat_id = telegram_credentials(cfg)
+    if len(caption) > 1024:
+        caption = caption[:1021] + "…"
+    payload = {
+        "chat_id": chat_id,
+        "photo": photo_url,
+        "caption": caption,
+        "parse_mode": "HTML",
+    }
+    if reply_markup:
+        payload["reply_markup"] = json.dumps(reply_markup)
+    return _telegram_response(token, "sendPhoto", payload, timeout=30)
+
+
 def send_offer_notification(cfg, offer):
-    """Wysyła powiadomienie o nowej ofercie."""
-    send_telegram_message(
-        cfg,
-        build_offer_message(offer),
-        reply_markup=build_offer_keyboard(offer),
-    )
+    """Wysyła powiadomienie o nowej ofercie (ze zdjęciem, jeśli dostępne)."""
+    caption = build_offer_message(offer)
+    keyboard = build_offer_keyboard(offer)
+    photo = (offer.get("photo") or "").strip()
+    if photo:
+        try:
+            send_telegram_photo(cfg, photo, caption, reply_markup=keyboard)
+            return
+        except Exception as exc:
+            log.warning("Nie udało się wysłać zdjęcia (%s). Wysyłam sam tekst.", exc)
+    send_telegram_message(cfg, caption, reply_markup=keyboard)
 
 
 # ---------------------------------------------------------------------------
