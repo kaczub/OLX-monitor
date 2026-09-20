@@ -166,7 +166,16 @@ Jeśli pojawi się błąd „Permission denied", najpierw wykonaj:
    ============================================================
    ```
 
-4. Otwórz przeglądarkę i wejdź na: **http://127.0.0.1:5000**
+4. Otwórz przeglądarkę i wejdź na adres wyświetlony w konsoli — domyślnie
+   **http://127.0.0.1:5000**.
+
+> **Ważne — numer portu.** Jeśli w konsoli zobaczysz inny port (np. `5001`),
+> użyj **tego** adresu. Najczęstsza przyczyna to port 5000 zajęty przez inny program —
+> na macOS jest to **AirPlay Receiver** (ControlCenter). Wtedy `http://127.0.0.1:5000`
+> nie należy do naszego panelu, a strona „zawiśnie" na „Łączenie…" i przyciski
+> nie będą reagować. Możesz to naprawić na stałe, wyłączając AirPlay Receiver:
+> *Ustawienia systemowe → Ogólne → AirDrop i Handoff → wyłącz „Odbiornik AirPlay"*,
+> a następnie uruchom bota ponownie (zajmie port 5000).
 
 ### Pierwsza konfiguracja w panelu
 
@@ -191,8 +200,9 @@ Jeśli nie chcesz trzymać otwartego okna konsoli ani przeglądarki, uruchom bot
 | **macOS / Linux** | `./start-background.sh` | `./stop.sh` |
 
 Po uruchomieniu w tle możesz **zamknąć terminal i przeglądarkę** — bot nadal skanuje
-OLX i wysyła powiadomienia. Aby wrócić do panelu, po prostu otwórz w przeglądarce
-**http://127.0.0.1:5000**.
+OLX i wysyła powiadomienia. Aby wrócić do panelu, otwórz w przeglądarce adres
+wyświetlony przez skrypt (domyślnie **http://127.0.0.1:5000**; skrypt otwiera go
+też automatycznie).
 
 > Jeśli port 5000 jest zajęty, program wybierze kolejny wolny port — jego adres
 > zapisze w pliku `bot.log` (linia „Panel administracyjny: http://...").

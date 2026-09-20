@@ -28,14 +28,23 @@ pip install -r requirements.txt --quiet --disable-pip-version-check
 
 nohup python app.py > /dev/null 2>&1 &
 echo $! > bot.pid
-sleep 2
+sleep 3
 
 if kill -0 "$(cat bot.pid)" 2>/dev/null; then
+  PORT="$(grep -o 'http://127.0.0.1:[0-9]*' bot.log 2>/dev/null | tail -1 | grep -o '[0-9]*$')"
+  [ -z "$PORT" ] && PORT=5000
+  URL="http://127.0.0.1:$PORT"
   echo ""
   echo "Bot uruchomiony w tle (PID $(cat bot.pid))."
-  echo "Panel: http://127.0.0.1:5000 (jeśli port był zajęty, adres znajdziesz w pliku bot.log)."
+  echo "Panel: $URL"
   echo "Możesz teraz zamknąć terminal i przeglądarkę."
   echo "Zatrzymanie: ./stop.sh"
+  # Otwórz panel w domyślnej przeglądarce (jeśli system na to pozwala).
+  if command -v open >/dev/null 2>&1; then
+    open "$URL" >/dev/null 2>&1 || true
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$URL" >/dev/null 2>&1 || true
+  fi
 else
   echo "[BLAD] Bot nie wystartowal. Sprawdz plik bot.log."
   rm -f bot.pid

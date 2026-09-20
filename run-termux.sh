@@ -22,7 +22,7 @@ fi
 echo ""
 echo "============================================================"
 echo " OLX Monitor - uruchamianie..."
-echo " Panel (na tym telefonie): http://127.0.0.1:5000"
+echo " Panel (na tym telefonie): adres wyświetli się poniżej"
 echo " Aby zatrzymać: naciśnij Ctrl+C"
 echo "============================================================"
 echo ""

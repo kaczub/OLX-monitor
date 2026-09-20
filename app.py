@@ -595,6 +595,7 @@ class ScannerThread(threading.Thread):
                     if not (cfg.get("telegram_enabled")
                             and cfg.get("telegram_bot_token")
                             and cfg.get("telegram_chat_id")):
+                        log.info("Wykryto nową ofertę (Telegram wyłączony): %s", offer["title"][:80])
                         continue
                     try:
                         send_offer_notification(cfg, offer)
@@ -1311,6 +1312,12 @@ def main():
 
     port = find_free_port()
     log.info("Panel administracyjny: http://127.0.0.1:%d", port)
+    if port != 5000:
+        log.warning(
+            "Port 5000 jest zajęty (na macOS często AirPlay Receiver) — "
+            "panel działa na porcie %d.",
+            port,
+        )
     banner = [
         "============================================================",
         "  OLX Monitor",

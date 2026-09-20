@@ -35,7 +35,7 @@ if errorlevel 1 (
 echo.
 echo ============================================================
 echo  OLX Monitor - uruchamianie...
-echo  Panel: http://127.0.0.1:5000
+echo  Adres panelu wyswietli sie ponizej (domyslnie http://127.0.0.1:5000)
 echo  Aby zatrzymac: zamknij to okno lub nacisnij Ctrl+C
 echo ============================================================
 echo.

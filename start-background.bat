@@ -43,9 +43,15 @@ if errorlevel 1 (
 echo Uruchamianie bota w tle (bez okna konsoli)...
 powershell -NoProfile -Command "Start-Process -WindowStyle Hidden -FilePath '.\venv\Scripts\pythonw.exe' -ArgumentList 'app.py' -WorkingDirectory '%CD%'"
 
+timeout /t 3 >nul
+set "PANEL_URL="
+for /f "delims=" %%u in ('powershell -NoProfile -Command "$m = Select-String -Path bot.log -Pattern ''http://127.0.0.1:[0-9]+'' | Select-Object -Last 1; if ($m) { [regex]::Match($m.Line, ''http://127.0.0.1:[0-9]+'').Value }"') do set "PANEL_URL=%%u"
+if not defined PANEL_URL set "PANEL_URL=http://127.0.0.1:5000"
+
 echo.
 echo Bot uruchomiony w tle.
-echo Panel: http://127.0.0.1:5000 (jesli port byl zajety, adres znajdziesz w pliku bot.log)
+echo Panel: %PANEL_URL%
 echo Mozesz zamknac to okno oraz przegladarke.
 echo Zatrzymanie: stop.bat
+start "" "%PANEL_URL%"
 timeout /t 5 >nul
