@@ -17,6 +17,10 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 if [ ! -f "venv/bin/python" ]; then
+  if [ -d "venv" ]; then
+    echo "Usuwanie nieprawidłowej zawartości venv..."
+    rm -rf venv
+  fi
   echo "Tworzenie środowiska wirtualnego (pierwsze uruchomienie)..."
   python3 -m venv venv
 fi

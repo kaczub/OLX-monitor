@@ -21,6 +21,7 @@ if errorlevel 1 (
 )
 
 if not exist "venv\Scripts\python.exe" (
+    if exist "venv" rmdir /s /q venv
     echo Tworzenie srodowiska wirtualnego (pierwsze uruchomienie)...
     python -m venv venv
     if errorlevel 1 (

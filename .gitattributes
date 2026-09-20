@@ -1,0 +1,7 @@
+# Pliki .bat wymagają końców linii CRLF (inaczej Windows cmd zamyka okno).
+# -text wyłącza normalizację, więc CRLF zostaje także w repo i w ZIP-ie z GitHuba.
+*.bat -text
+
+# Skrypty powłoki i kod: LF
+*.sh text eol=lf
+*.py text eol=lf
