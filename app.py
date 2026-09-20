@@ -86,6 +86,7 @@ STATUS = {
 STOP_EVENT = threading.Event()      # sygnał zatrzymania wątku skanera
 SCAN_NOW_EVENT = threading.Event()  # sygnał natychmiastowego skanu
 SCANNER_ALIVE = threading.Event()   # informacja, czy skaner pracuje
+SCAN_PAUSED = threading.Event()     # wstrzymanie skanowania (przełącznik w panelu)
 CONFIG_LOCK = threading.Lock()
 STATUS_LOCK = threading.Lock()
 
@@ -506,15 +507,13 @@ class ScannerThread(threading.Thread):
         log.info("Skaner uruchomiony.")
         try:
             while not STOP_EVENT.is_set():
+                if SCAN_PAUSED.is_set():
+                    self._wait_while_paused()
+                    continue
                 cfg = load_config()
                 if not cfg.get("urls"):
                     log.info("Brak adresów URL w konfiguracji. Oczekiwanie 60 s...")
-                    deadline = time.time() + 60
-                    while time.time() < deadline and not STOP_EVENT.is_set():
-                        if SCAN_NOW_EVENT.is_set():
-                            SCAN_NOW_EVENT.clear()
-                            break
-                        STOP_EVENT.wait(5)
+                    self._idle_wait(60)
                     continue
                 try:
                     self.scan_once(cfg)
@@ -524,6 +523,34 @@ class ScannerThread(threading.Thread):
         finally:
             SCANNER_ALIVE.clear()
             log.info("Skaner zatrzymany.")
+
+    def _wait_while_paused(self):
+        """Czeka na wznowienie; pozwala też wykonać pojedynczy skan ręczny."""
+        with STATUS_LOCK:
+            STATUS["next_scan_in"] = None
+        log.info("Skanowanie wstrzymane. Wznów przełącznikiem w panelu.")
+        while SCAN_PAUSED.is_set() and not STOP_EVENT.is_set():
+            if SCAN_NOW_EVENT.is_set():
+                SCAN_NOW_EVENT.clear()
+                try:
+                    self.scan_once(load_config())
+                except Exception:
+                    log.exception("Nieoczekiwany błąd podczas skanowania.")
+                continue
+            STOP_EVENT.wait(1)
+        if not STOP_EVENT.is_set():
+            log.info("Skanowanie wznowione.")
+
+    def _idle_wait(self, seconds):
+        """Przestój (np. brak adresów URL), reagujący na wznowienie i skan ręczny."""
+        deadline = time.time() + seconds
+        while time.time() < deadline and not STOP_EVENT.is_set():
+            if SCAN_PAUSED.is_set():
+                return
+            if SCAN_NOW_EVENT.is_set():
+                SCAN_NOW_EVENT.clear()
+                return
+            STOP_EVENT.wait(5)
 
     def _sleep_with_abort(self, cfg):
         """Uśpia wątek na losowy czas, reagując na zmianę konfiguracji."""
@@ -535,6 +562,10 @@ class ScannerThread(threading.Thread):
         interval = random.uniform(min_interval, max_interval)
         deadline = time.time() + interval
         while time.time() < deadline and not STOP_EVENT.is_set():
+            if SCAN_PAUSED.is_set():
+                with STATUS_LOCK:
+                    STATUS["next_scan_in"] = None
+                return
             remaining = deadline - time.time()
             with STATUS_LOCK:
                 STATUS["next_scan_in"] = int(remaining)
@@ -719,7 +750,27 @@ PANEL_HTML = """<!doctype html>
   .pill.busy { color: var(--warn); border-color: rgba(217,164,65,.4); }
   .pill.busy .dot { animation: pulse 1.4s ease-in-out infinite; }
   .pill.err { color: var(--err); border-color: rgba(224,138,122,.4); }
+  .pill.paused { color: var(--warn); border-color: rgba(217,164,65,.5); }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+  /* Przełącznik skanowania */
+  .topbar-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch .track {
+    width: 42px; height: 24px; border-radius: 999px; position: relative;
+    background: var(--field); border: 1px solid var(--border-strong);
+    transition: background-color .15s ease, border-color .15s ease;
+  }
+  .switch .thumb {
+    position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--muted); transition: transform .15s ease, background-color .15s ease;
+  }
+  .switch input:checked + .track { background: var(--accent-soft); border-color: var(--accent); }
+  .switch input:checked + .track .thumb { transform: translateX(18px); background: var(--accent); }
+  .switch input:focus-visible + .track { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .switch .switch-text { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .switch input:checked ~ .switch-text { color: var(--text-soft); }
 
   /* Układ */
   .grid {
@@ -883,8 +934,15 @@ PANEL_HTML = """<!doctype html>
         <p>Panel działa lokalnie (127.0.0.1) &middot; przeglądarkę możesz zamknąć — bot pracuje dalej</p>
       </div>
     </div>
-    <div class="pill" id="status-pill" role="status" aria-live="polite">
-      <span class="dot"></span><span id="status-text">Łączenie…</span>
+    <div class="topbar-right">
+      <label class="switch" for="scan-toggle" title="Włącz lub wstrzymaj automatyczne skanowanie">
+        <input type="checkbox" id="scan-toggle" checked onchange="toggleScan(this.checked)">
+        <span class="track"><span class="thumb"></span></span>
+        <span class="switch-text">Skanowanie</span>
+      </label>
+      <div class="pill" id="status-pill" role="status" aria-live="polite">
+        <span class="dot"></span><span id="status-text">Łączenie…</span>
+      </div>
     </div>
   </div>
 
@@ -1070,6 +1128,18 @@ PANEL_HTML = """<!doctype html>
     box.textContent = message;
   }
 
+  async function toggleScan(on) {
+    feedback(on ? 'Wznawianie skanowania…' : 'Wstrzymywanie skanowania…', 'info');
+    try {
+      const r = await fetch('/scan_toggle?state=' + (on ? 'on' : 'off'), { method: 'POST' });
+      const d = await r.json();
+      feedback(d.message, d.ok ? 'ok' : 'err');
+      refresh();
+    } catch (e) {
+      feedback('Nie udało się połączyć z serwerem.', 'err');
+    }
+  }
+
   async function refresh() {
     let d;
     try {
@@ -1079,7 +1149,10 @@ PANEL_HTML = """<!doctype html>
       setStatus('err', 'Brak połączenia');
       return;
     }
+    const paused = !!d.paused;
+    $('scan-toggle').checked = !paused;
     if (!d.scanner_running) setStatus('err', 'Zatrzymany');
+    else if (paused) setStatus('paused', 'Wstrzymany');
     else if (d.scanning_now) setStatus('busy', 'Skanowanie…');
     else setStatus('ok', 'Oczekuje');
 
@@ -1246,6 +1319,27 @@ def scan_now():
     return jsonify(ok=True, message="Skan zostanie uruchomiony za chwilę.")
 
 
+@app.post("/scan_toggle")
+def scan_toggle():
+    """Włącza lub wstrzymuje skanowanie (przełącznik w panelu)."""
+    state = request.args.get("state") or request.form.get("state")
+    if state == "on":
+        SCAN_PAUSED.clear()
+    elif state == "off":
+        SCAN_PAUSED.set()
+    elif SCAN_PAUSED.is_set():
+        SCAN_PAUSED.clear()
+    else:
+        SCAN_PAUSED.set()
+    paused = SCAN_PAUSED.is_set()
+    log.info("Skanowanie %s.", "wstrzymane" if paused else "wznowione")
+    return jsonify(
+        ok=True,
+        paused=paused,
+        message="Skanowanie wstrzymane." if paused else "Skanowanie wznowione.",
+    )
+
+
 @app.get("/api/status")
 def api_status():
     """Zwraca status aplikacji oraz ostatnie linie logu (dla panelu)."""
@@ -1254,6 +1348,7 @@ def api_status():
         status = dict(STATUS)
     return jsonify(
         scanner_running=SCANNER_ALIVE.is_set(),
+        paused=SCAN_PAUSED.is_set(),
         scanning_now=status["scanning_now"],
         last_scan=status["last_scan"],
         last_scan_found=status["last_scan_found"],
