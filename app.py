@@ -458,14 +458,18 @@ def build_offer_message(offer):
     price = html.escape(offer.get("price") or "Nie podano")
     location = html.escape(offer.get("location") or "Nie podano")
     offer_url = html.escape(offer.get("url") or "")
+    separator = "━" * 16
     return (
-        "<b>Nowe ogłoszenie na OLX</b>\n"
-        "\n"
-        f"<b>{title}</b>\n"
-        f"Cena: <b>{price}</b>\n"
-        f"Lokalizacja: {location}\n"
-        "\n"
-        f'<a href="{offer_url}">Zobacz ogłoszenie</a>'
+        f"🔔 <b>NOWE OGŁOSZENIE NA OLX</b>\n"
+        f"{separator}\n"
+        f"\n"
+        f"🏷 <b>{title}</b>\n"
+        f"\n"
+        f"💰 <b>Cena:</b> {price}\n"
+        f"📍 <b>Lokalizacja:</b> {location}\n"
+        f"\n"
+        f"{separator}\n"
+        f'🔗 <a href="{offer_url}">Zobacz ofertę na OLX</a>'
     )
 
 
@@ -473,7 +477,7 @@ def build_offer_keyboard(offer):
     """Buduje przycisk prowadzący bezpośrednio do oferty."""
     return {
         "inline_keyboard": [
-            [{"text": "Otwórz na OLX", "url": offer.get("url") or ""}]
+            [{"text": "🔗 Otwórz na OLX", "url": offer.get("url") or ""}]
         ]
     }
 
@@ -1347,8 +1351,10 @@ def test_telegram():
     try:
         send_telegram_message(
             cfg,
-            "<b>Test powiadomień OLX Monitor</b>\n\n"
-            "Połączenie działa poprawnie.",
+            "✅ <b>OLX Monitor — test powiadomień</b>\n"
+            "━━━━━━━━━━━━━━━━\n\n"
+            "Połączenie z Telegramem działa poprawnie.\n"
+            "Nowe oferty będą przychodzić ze zdjęciem i szczegółami.",
         )
         log.info("Testowa wiadomość Telegram wysłana pomyślnie.")
         return jsonify(ok=True, message="Wiadomość testowa wysłana. Sprawdź Telegram.")
