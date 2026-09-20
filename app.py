@@ -15,6 +15,10 @@ Funkcje:
 - Konfiguracja zapisywana w pliku config.json.
 - Opcjonalne filtry slow kluczowych w tytulach ofert.
 
+Zgodnosc:
+- Jesli curl_cffi nie jest dostepne (np. Android / Termux, gdzie nie ma
+  gotowych paczek), program automatycznie korzysta z biblioteki requests.
+
 Uruchomienie:  python app.py
 """
 
@@ -30,7 +34,15 @@ from collections import deque
 from datetime import datetime
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
-import curl_cffi.requests as curl_requests
+try:
+    import curl_cffi.requests as http_client
+
+    HAS_CURL_CFFI = True
+except ImportError:  # np. Android / Termux - brak gotowych paczek curl_cffi
+    import requests as http_client
+
+    HAS_CURL_CFFI = False
+
 from flask import Flask, jsonify, redirect, render_template_string, request
 
 # ---------------------------------------------------------------------------
@@ -219,13 +231,15 @@ def save_seen(data):
 def http_request(method, url, **kwargs):
     """
     Wykonuje zadanie HTTP z udawaniem przegladarki Chrome.
-    Jesli profil chrome120 nie jest dostepny, uzywa profilu domyslnego.
+    Jesli curl_cffi nie jest dostepne, korzysta z requests (bez imitacji TLS).
     """
+    if not HAS_CURL_CFFI:
+        return http_client.request(method, url, **kwargs)
     try:
-        return curl_requests.request(method, url, impersonate=BROWSER_IMITATE, **kwargs)
+        return http_client.request(method, url, impersonate=BROWSER_IMITATE, **kwargs)
     except (ValueError, TypeError):
         log.debug("Profil %s niedostepny - uzywam domyslnego profilu.", BROWSER_IMITATE)
-        return curl_requests.request(method, url, **kwargs)
+        return http_client.request(method, url, **kwargs)
 
 
 def fetch_html(page_url, timeout=30):
@@ -250,6 +264,22 @@ def looks_like_block(html_text):
     """Wykrywa strony blokad (captcha / Cloudflare)."""
     lowered = html_text.lower()
     return ("captcha" in lowered and len(html_text) < 200000) or "cf-chl-" in lowered
+
+
+def describe_http_error(exc):
+    """Zwraca czytelny opis bledu HTTP (z podpowiedzia dla uzytkownika)."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status == 403:
+        if HAS_CURL_CFFI:
+            return ("OLX odrzucil zapytanie (403). Zmniejsz liczbe adresow URL "
+                    "i zwieksz interwal skanowania.")
+        return ("OLX odrzucil zapytanie (403). Tryb zgodnosci bez curl_cffi "
+                "(np. Android/Termux) jest czesto blokowany - zalecany komputer lub VPS.")
+    if status == 429:
+        return "Zbyt wiele zapytan (429). Zwieksz interwal skanowania."
+    if status == 504:
+        return "OLX chwilowo nie odpowiada (504). Program ponowi probe automatycznie."
+    return f"Blad sieci: {exc}"
 
 
 # ---------------------------------------------------------------------------
@@ -511,9 +541,10 @@ class ScannerThread(threading.Thread):
                 try:
                     page_html = fetch_html(page_url)
                 except Exception as exc:
+                    message = describe_http_error(exc)
                     with STATUS_LOCK:
-                        STATUS["last_error"] = f"Blad sieci: {exc}"
-                    log.warning("Nie udalo sie pobrac %s (%s)", page_url, exc)
+                        STATUS["last_error"] = message
+                    log.warning("Nie udalo sie pobrac %s (%s)", page_url, message)
                     break
 
                 if looks_like_block(page_html):
@@ -913,6 +944,13 @@ def main():
     """Punkt wejscia aplikacji."""
     setup_logging()
     log.info("Uruchamianie OLX Monitor Bot...")
+    if HAS_CURL_CFFI:
+        log.info("Klient HTTP: curl_cffi (imitacja przegladarki %s).", BROWSER_IMITATE)
+    else:
+        log.warning(
+            "Klient HTTP: requests (curl_cffi niedostepne - tryb zgodnosci, "
+            "np. Android/Termux). OLX moze czesciej stosowac blokady."
+        )
 
     scanner = ScannerThread()
     scanner.start()

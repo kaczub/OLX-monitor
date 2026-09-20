@@ -3,8 +3,8 @@
 **OLX Monitor Bot** to program, który automatycznie monitoruje wybrane wyszukiwania na OLX
 i wysyła Ci powiadomienia na Telegram, gdy tylko pojawi się nowe ogłoszenie.
 
-Działa na komputerze (Windows, macOS, Linux), jest prosty w obsłudze i nie wymaga
-wiedzy programistycznej.
+Działa na komputerze (Windows, macOS, Linux), a także na telefonie z Androidem
+poprzez aplikację **Termux** — jest prosty w obsłudze i nie wymaga wiedzy programistycznej.
 
 ## Co potrafi
 
@@ -16,14 +16,28 @@ wiedzy programistycznej.
 - ma opcjonalny filtr słów kluczowych w tytule,
 - posiada panel sterowania w przeglądarce (ciemny motyw).
 
+## Spis treści
+
+1. [Co potrafi](#co-potrafi)
+2. [Zawartość pakietu](#zawartość-pakietu)
+3. [Krok 1 — Wymagania wstępne (instalacja Pythona)](#krok-1--wymagania-wstępne-instalacja-pythona)
+4. [Krok 2 — Tworzenie bota na Telegramie](#krok-2--tworzenie-bota-na-telegramie)
+5. [Krok 3 — Pierwsze uruchomienie](#krok-3--pierwsze-uruchomienie)
+6. [Krok 4 — Ustawianie filtrów OLX](#krok-4--ustawianie-filtrów-olx-jak-skopiować-poprawny-link)
+7. [Krok 5 — Najczęstsze pytania i rozwiązywanie problemów](#krok-5--najczęstsze-pytania-i-rozwiązywanie-problemów)
+8. [Uruchomienie na Androidzie (Termux)](#uruchomienie-na-androidzie-termux)
+9. [Bezpieczeństwo i uwagi prawne](#bezpieczeństwo-i-uwagi-prawne)
+
 ## Zawartość pakietu
 
 | Plik | Opis |
 |---|---|
 | `app.py` | Główny program (backend + panel www) |
-| `requirements.txt` | Lista wymaganych bibliotek Pythona |
+| `requirements.txt` | Wymagane biblioteki Pythona (Windows / macOS / Linux) |
+| `requirements-termux.txt` | Biblioteki dla Androida / Termux (bez `curl_cffi`) |
 | `run.bat` | Skrypt startowy dla **Windows** (kliknij dwukrotnie) |
 | `run.sh` | Skrypt startowy dla **macOS / Linux** |
+| `run-termux.sh` | Skrypt startowy dla **Androida / Termux** |
 | `README.md` | Ta instrukcja |
 
 Pliki tworzone automatycznie podczas działania:
@@ -33,7 +47,7 @@ Pliki tworzone automatycznie podczas działania:
 | `config.json` | Twoja konfiguracja (token, Chat ID, adresy URL, interwały) |
 | `seen_offers.json` | Historia widzianych ofert (ochrona przed duplikatami) |
 | `bot.log` | Dziennik zdarzeń programu |
-| `venv/` | Środowisko wirtualne Pythona (tworzone przy pierwszym uruchomieniu) |
+| `venv/` | Środowisko wirtualne Pythona (Windows / macOS / Linux, tworzone przy pierwszym uruchomieniu) |
 
 ---
 
@@ -62,6 +76,11 @@ Sprawdzenie: otwórz Terminal i wpisz `python3 --version`.
 sudo apt update
 sudo apt install python3 python3-venv python3-pip
 ```
+
+### Android
+
+Instalację Pythona w Termuxie opisano w sekcji
+[Uruchomienie na Androidzie (Termux)](#uruchomienie-na-androidzie-termux).
 
 ---
 
@@ -265,6 +284,115 @@ Tryby:
 - **Następny skan za** — odliczanie do kolejnego skanu,
 - **Zapamiętane oferty** — ile ofert program już widział (historia),
 - **Wysłane powiadomienia** — łączna liczba wysłanych wiadomości Telegram.
+
+---
+
+## Uruchomienie na Androidzie (Termux)
+
+Bot może działać **na telefonie z Androidem** dzięki aplikacji **Termux** (terminal).
+To wygodne rozwiązanie, jeśli chcesz monitorować OLX bez włączania komputera.
+
+> **Ważne ograniczenie Androida**
+>
+> Na Androidzie **nie da się zainstalować biblioteki `curl_cffi`** (nie istnieją dla
+> tego systemu gotowe paczki). Program automatycznie przełączy się wtedy na bibliotekę
+> `requests`, co oznacza, że:
+>
+> - panel, powiadomienia Telegram i filtry działają dokładnie tak samo,
+> - **ale OLX może odpowiadać błędem `403` i blokować skanowanie** — `requests`
+>   nie potrafi udawać przeglądarki Chrome tak skutecznie jak `curl_cffi`.
+>
+> Jeśli w dzienniku zdarzeń zobaczysz komunikat *„OLX odrzucił zapytanie (403)"*,
+> oznacza to, że z Twojego połączenia Termux nie jest w stanie pobierać danych OLX.
+> W takiej sytuacji najlepiej uruchomić bota na komputerze, Raspberry Pi lub
+> tanim serwerze VPS.
+
+### Krok A — instalacja Termux
+
+1. Pobierz Termux **z F-Droid**: <https://f-droid.org/packages/com.termux/>
+   (wersja ze Sklepu Play jest przestarzała i nie zadziała).
+2. Zainstaluj aplikację i uruchom ją.
+
+### Krok B — instalacja Pythona
+
+Wpisz w Termuxie:
+
+```bash
+pkg update && pkg upgrade -y
+pkg install python -y
+```
+
+### Krok C — skopiowanie programu na telefon
+
+Najprościej pobierz folder z programem na telefon (np. do katalogu `Pobrane`),
+a następnie w Termuxie wykonaj:
+
+```bash
+termux-setup-storage      # jednorazowo — zezwól na dostęp do plików
+cd ~/storage/downloads/"OLX bot"
+```
+
+> Jeśli folder ma inną nazwę, użyj jej w miejsce `"OLX bot"`.
+> Podpowiedź: wpisz `cd ~/storage/downloads/` i naciśnij `Tab`, aby uzupełnić nazwę.
+
+### Krok D — instalacja zależności i uruchomienie
+
+```bash
+bash run-termux.sh
+```
+
+Skrypt sam zainstaluje biblioteki i uruchomi program. Ręcznie wygląda to tak:
+
+```bash
+pip install -r requirements-termux.txt
+python app.py
+```
+
+Panel otwórz w przeglądarce **na tym samym telefonie**:
+
+```text
+http://127.0.0.1:5000
+```
+
+> Jeśli konsola pokaże inny port (np. `5001`), użyj portu wyświetlonego w konsoli.
+
+### Krok E — praca ciągła w tle
+
+Aby Android nie usypiał bota:
+
+1. **Włącz blokadę uśpienia** (skrypt `run-termux.sh` robi to automatycznie):
+
+   ```bash
+   termux-wake-lock
+   ```
+
+2. **Wyłącz optymalizację baterii dla Termux**:
+   `Ustawienia` → `Aplikacje` → `Termux` → `Bateria` → **„Bez ograniczeń"**.
+
+3. **Uruchom bota w sesji `tmux`** — dzięki temu będzie działał po zamknięciu
+   klawiatury lub przełączeniu aplikacji:
+
+   ```bash
+   pkg install tmux -y
+   tmux new -s olx
+   python app.py
+   ```
+
+   | Czynność | Skrót / komenda |
+   |---|---|
+   | Odłączenie od sesji (bot dalej działa) | `Ctrl + B`, potem `D` |
+   | Powrót do sesji | `tmux attach -t olx` |
+   | Zatrzymanie bota | `Ctrl + C` |
+
+### Krok F — co zrobić przy błędzie 403?
+
+Błąd `403` w trybie Termux wynika najczęściej z braku `curl_cffi` (patrz ramka na
+początku tej sekcji). Możesz spróbować:
+
+- zwiększyć interwały skanowania (np. `300–600` s) i ograniczyć się do jednego adresu URL,
+- zmienić połączenie internetowe (Wi-Fi ↔ dane komórkowe) — blokada zależy od adresu IP,
+- przenieść bota na komputer, Raspberry Pi lub serwer VPS, gdzie `curl_cffi`
+  działa i skanowanie jest znacznie bardziej niezawodne.
 
 ---
 
