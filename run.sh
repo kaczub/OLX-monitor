@@ -24,7 +24,7 @@ pip install -r requirements.txt --quiet --disable-pip-version-check
 
 echo ""
 echo "============================================================"
-echo " OLX Monitor Bot - uruchamianie..."
+echo " OLX Monitor - uruchamianie..."
 echo " Panel: http://127.0.0.1:5000"
 echo " Aby zatrzymać: naciśnij Ctrl+C"
 echo "============================================================"

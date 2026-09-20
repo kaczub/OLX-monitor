@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title OLX Monitor Bot
+title OLX Monitor
 cd /d "%~dp0"
 
 where python >nul 2>nul
@@ -34,7 +34,7 @@ if errorlevel 1 (
 
 echo.
 echo ============================================================
-echo  OLX Monitor Bot - uruchamianie...
+echo  OLX Monitor - uruchamianie...
 echo  Panel: http://127.0.0.1:5000
 echo  Aby zatrzymac: zamknij to okno lub nacisnij Ctrl+C
 echo ============================================================

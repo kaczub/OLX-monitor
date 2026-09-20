@@ -1,6 +1,6 @@
-# OLX Monitor Bot — Instrukcja obsługi
+# OLX Monitor — Instrukcja obsługi
 
-**OLX Monitor Bot** to program, który automatycznie monitoruje wybrane wyszukiwania na OLX
+**OLX Monitor** to program, który automatycznie monitoruje wybrane wyszukiwania na OLX
 i wysyła Ci powiadomienia na Telegram, gdy tylko pojawi się nowe ogłoszenie.
 
 Działa na komputerze (Windows, macOS, Linux), a także na telefonie z Androidem
@@ -161,7 +161,7 @@ Jeśli pojawi się błąd „Permission denied", najpierw wykonaj:
 
    ```
    ============================================================
-     OLX Monitor Bot
+     OLX Monitor
      Panel administracyjny:  http://127.0.0.1:5000
    ============================================================
    ```

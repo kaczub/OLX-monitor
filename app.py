@@ -1,5 +1,5 @@
 """
-OLX Monitor Bot
+OLX Monitor
 ===============
 
 Aplikacja monitoruje wybrane adresy URL serwisu OLX, wykrywa nowe
@@ -89,7 +89,7 @@ SCANNER_ALIVE = threading.Event()   # informacja, czy skaner pracuje
 CONFIG_LOCK = threading.Lock()
 STATUS_LOCK = threading.Lock()
 
-log = logging.getLogger("olxbot")
+log = logging.getLogger("olxmonitor")
 
 # ---------------------------------------------------------------------------
 # Logowanie
@@ -639,7 +639,7 @@ PANEL_HTML = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#1a1915">
-<title>OLX Monitor Bot</title>
+<title>OLX Monitor</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23d97757'/%3E%3Ccircle cx='11' cy='11' r='5.5' fill='none' stroke='%231a1915' stroke-width='2'/%3E%3Cpath d='M11 11 15.5 6.5' stroke='%231a1915' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -878,7 +878,7 @@ PANEL_HTML = """<!doctype html>
         </svg>
       </div>
       <div>
-        <h1>OLX Monitor Bot</h1>
+        <h1>OLX Monitor</h1>
         <p>Panel działa lokalnie (127.0.0.1) &middot; przeglądarkę możesz zamknąć — bot pracuje dalej</p>
       </div>
     </div>
@@ -1227,7 +1227,7 @@ def test_telegram():
     try:
         send_telegram_message(
             cfg,
-            "<b>Test powiadomień OLX Monitor Bot</b>\n\n"
+            "<b>Test powiadomień OLX Monitor</b>\n\n"
             "Połączenie działa poprawnie.",
         )
         log.info("Testowa wiadomość Telegram wysłana pomyślnie.")
@@ -1297,7 +1297,7 @@ def find_free_port(start=5000, count=6):
 def main():
     """Punkt wejścia aplikacji."""
     setup_logging()
-    log.info("Uruchamianie OLX Monitor Bot...")
+    log.info("Uruchamianie OLX Monitor...")
     if HAS_CURL_CFFI:
         log.info("Klient HTTP: curl_cffi (imitacja przeglądarki %s).", BROWSER_IMITATE)
     else:
@@ -1313,7 +1313,7 @@ def main():
     log.info("Panel administracyjny: http://127.0.0.1:%d", port)
     banner = [
         "============================================================",
-        "  OLX Monitor Bot",
+        "  OLX Monitor",
         f"  Panel administracyjny:  http://127.0.0.1:{port}",
         "  Aby zatrzymać aplikację naciśnij Ctrl+C",
         "============================================================",
