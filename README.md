@@ -38,6 +38,8 @@ poprzez aplikację **Termux** — jest prosty w obsłudze i nie wymaga wiedzy pr
 | `run.bat` | Skrypt startowy dla **Windows** (kliknij dwukrotnie) |
 | `run.sh` | Skrypt startowy dla **macOS / Linux** |
 | `run-termux.sh` | Skrypt startowy dla **Androida / Termux** |
+| `start-background.bat` / `stop.bat` | Praca w tle (bez otwartego okna) — **Windows** |
+| `start-background.sh` / `stop.sh` | Praca w tle (bez otwartego okna) — **macOS / Linux** |
 | `README.md` | Ta instrukcja |
 
 Pliki tworzone automatycznie podczas działania:
@@ -47,6 +49,7 @@ Pliki tworzone automatycznie podczas działania:
 | `config.json` | Twoja konfiguracja (token, Chat ID, adresy URL, interwały) |
 | `seen_offers.json` | Historia widzianych ofert (ochrona przed duplikatami) |
 | `bot.log` | Dziennik zdarzeń programu |
+| `bot.pid` | Numer procesu bota (tworzony tylko w trybie pracy w tle) |
 | `venv/` | Środowisko wirtualne Pythona (Windows / macOS / Linux, tworzone przy pierwszym uruchomieniu) |
 
 ---
@@ -173,8 +176,29 @@ Jeśli pojawi się błąd „Permission denied", najpierw wykonaj:
 4. Kliknij **„Test wiadomości Telegram"** — na Telegramie powinna pojawić się wiadomość testowa.
 5. Kliknij **„Skanuj teraz"**, aby od razu sprawdzić swoje wyszukiwania.
 
-> **Uwaga:** okno programu musi pozostać otwarte — zamknięcie okna zatrzymuje monitorowanie.
+> **Uwaga:** przeglądarkę możesz zamknąć w dowolnym momencie — bot działa dalej.
+> Okno konsoli (czarne okno z uruchomionym programem) musi pozostać otwarte,
+> dopóki nie użyjesz trybu pracy w tle (patrz niżej).
 > Program działa wyłącznie lokalnie (adres 127.0.0.1), panelu nie widać z internetu.
+
+### Uruchamianie w tle (bez otwartego okna)
+
+Jeśli nie chcesz trzymać otwartego okna konsoli ani przeglądarki, uruchom bota w tle:
+
+| System | Uruchomienie w tle | Zatrzymanie |
+|---|---|---|
+| **Windows** | kliknij dwukrotnie `start-background.bat` | kliknij dwukrotnie `stop.bat` |
+| **macOS / Linux** | `./start-background.sh` | `./stop.sh` |
+
+Po uruchomieniu w tle możesz **zamknąć terminal i przeglądarkę** — bot nadal skanuje
+OLX i wysyła powiadomienia. Aby wrócić do panelu, po prostu otwórz w przeglądarce
+**http://127.0.0.1:5000**.
+
+> Jeśli port 5000 jest zajęty, program wybierze kolejny wolny port — jego adres
+> zapisze w pliku `bot.log` (linia „Panel administracyjny: http://...").
+
+> **Android / Termux:** użyj `bash run-termux.sh` razem z `termux-wake-lock`
+> (patrz sekcja [Uruchomienie na Androidzie (Termux)](#uruchomienie-na-androidzie-termux)).
 
 ---
 
@@ -257,8 +281,9 @@ kolejnych (5001, 5002...). Prawidłowy adres znajdziesz w oknie konsoli w linii
 
 ### 6. Chcę zacząć od zera (wyczyścić historię)
 
-Zatrzymaj program (Ctrl+C lub zamknij okno), usuń plik **`seen_offers.json`**
-i uruchom ponownie. Program zapomni o wszystkich widzianych ofertach.
+Zatrzymaj program (Ctrl+C w oknie konsoli albo `stop.sh` / `stop.bat` w trybie tła),
+usuń plik **`seen_offers.json`** i uruchom ponownie. Program zapomni o wszystkich
+widzianych ofertach.
 (Uwaga: jeśli opcja „Powiadamiaj o wszystkich ofertach z pierwszego skanu" jest
 włączona, po restarcie możesz dostać dużo powiadomień naraz).
 

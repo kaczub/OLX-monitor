@@ -7,6 +7,7 @@ __pycache__/
 config.json
 seen_offers.json
 bot.log
+bot.pid
 
 # System
 .DS_Store

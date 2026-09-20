@@ -820,7 +820,7 @@ PANEL_HTML = """<!doctype html>
       </div>
       <div>
         <h1>OLX Monitor Bot</h1>
-        <p>Panel dziala lokalnie (127.0.0.1) &middot; nie zamykaj tego okna</p>
+        <p>Panel dziala lokalnie (127.0.0.1) &middot; przegladarke mozesz zamknac - bot pracuje dalej</p>
       </div>
     </div>
     <div class="pill emerald" id="status-pill">
@@ -948,7 +948,9 @@ PANEL_HTML = """<!doctype html>
   <footer>
     Historia ofert: <code>seen_offers.json</code> &middot;
     Konfiguracja: <code>config.json</code> &middot;
-    Log: <code>bot.log</code>
+    Log: <code>bot.log</code><br>
+    Mozesz zamknac te przegladarke - bot dziala dalej w tle.
+    Zatrzymanie: <code>stop.sh</code> (macOS/Linux) lub <code>stop.bat</code> (Windows).
   </footer>
 </div>
 
@@ -1193,6 +1195,7 @@ def main():
     scanner.start()
 
     port = find_free_port()
+    log.info("Panel administracyjny: http://127.0.0.1:%d", port)
     banner = [
         "============================================================",
         "  OLX Monitor Bot",
