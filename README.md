@@ -14,7 +14,7 @@ poprzez aplikację **Termux** — jest prosty w obsłudze i nie wymaga wiedzy pr
 - nie wysyła duplikatów (pamięta, które oferty już widział),
 - obsługuje wiele adresów URL jednocześnie,
 - ma opcjonalny filtr słów kluczowych w tytule,
-- posiada panel sterowania w przeglądarce (ciemny motyw).
+- posiada panel sterowania w przeglądarce (ciepły, ciemny motyw — spokojny i czytelny).
 
 ## Spis treści
 
