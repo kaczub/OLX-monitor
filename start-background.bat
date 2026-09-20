@@ -1,5 +1,4 @@
 @echo off
-chcp 65001 >nul
 title OLX Monitor - uruchamianie w tle
 cd /d "%~dp0"
 

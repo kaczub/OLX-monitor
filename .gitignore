@@ -8,6 +8,7 @@ config.json
 seen_offers.json
 bot.log
 bot.pid
+run-log.txt
 
 # Artefakty narzędziowe (nie publikujemy w repo)
 DESIGN.md

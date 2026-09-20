@@ -1,5 +1,4 @@
 @echo off
-chcp 65001 >nul
 title OLX Monitor - zatrzymywanie
 cd /d "%~dp0"
 
