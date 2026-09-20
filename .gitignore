@@ -1,0 +1,13 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Dane lokalne (zawierają tokeny i historię)
+config.json
+seen_offers.json
+bot.log
+
+# System
+.DS_Store
+Thumbs.db
