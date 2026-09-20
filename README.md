@@ -354,10 +354,10 @@ a następnie w Termuxie wykonaj:
 
 ```bash
 termux-setup-storage      # jednorazowo — zezwól na dostęp do plików
-cd ~/storage/downloads/"OLX bot"
+cd ~/storage/downloads/"OLX Monitor"
 ```
 
-> Jeśli folder ma inną nazwę, użyj jej w miejsce `"OLX bot"`.
+> Jeśli folder ma inną nazwę, użyj jej w miejsce `"OLX Monitor"`.
 > Podpowiedź: wpisz `cd ~/storage/downloads/` i naciśnij `Tab`, aby uzupełnić nazwę.
 
 ### Krok D — instalacja zależności i uruchomienie
