@@ -69,6 +69,7 @@ DEFAULT_CONFIG = {
     "max_interval": 300,
     "max_pages": 2,
     "notify_first_scan": False,
+    "test_message": "",
 }
 
 LOG_LINES = deque(maxlen=300)    # ostatnie linie logu (wyświetlane w panelu)
@@ -497,15 +498,16 @@ def _telegram_response(token, method, payload, timeout=20):
     return data
 
 
-def send_telegram_message(cfg, text, reply_markup=None):
+def send_telegram_message(cfg, text, reply_markup=None, parse_mode="HTML"):
     """Wysyła wiadomość tekstową przez API Telegrama."""
     token, chat_id = telegram_credentials(cfg)
     payload = {
         "chat_id": chat_id,
         "text": text,
-        "parse_mode": "HTML",
         "disable_web_page_preview": False,
     }
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     if reply_markup:
         payload["reply_markup"] = json.dumps(reply_markup)
     return _telegram_response(token, "sendMessage", payload)
@@ -869,6 +871,7 @@ PANEL_HTML = """<!doctype html>
     transition: border-color .15s ease, box-shadow .15s ease;
   }
   .textarea { resize: vertical; min-height: 140px; line-height: 1.6; overflow-wrap: anywhere; }
+  .textarea.short { min-height: 88px; }
   .input::placeholder, .textarea::placeholder { color: var(--muted); opacity: 1; }
   .input:hover, .select:hover, .textarea:hover { border-color: var(--border-strong); }
   .input:focus, .select:focus, .textarea:focus {
@@ -1081,6 +1084,16 @@ PANEL_HTML = """<!doctype html>
               </label>
             </div>
 
+            <div class="group">
+              <h3 class="group-title">Test powiadomień</h3>
+              <div class="field">
+                <label class="label" for="f-test-msg">Własna wiadomość testowa (opcjonalnie)</label>
+                <textarea id="f-test-msg" class="textarea short" name="test_message" rows="3"
+                          placeholder="Pozostaw puste, aby wysłać domyślny test. Możesz użyć emoji.">{{ cfg.test_message }}</textarea>
+                <div class="hint">Kliknij „Test wiadomości", aby wysłać tę treść na Telegram. Treść jest zapisywana razem z konfiguracją.</div>
+              </div>
+            </div>
+
             <div class="actions">
               <button type="submit" class="btn btn-primary">Zapisz konfigurację</button>
               <button type="button" class="btn btn-secondary" onclick="runAction('/test')">Test wiadomości</button>
@@ -1238,6 +1251,7 @@ PANEL_HTML = """<!doctype html>
     fd.append('max_pages', $('f-pages').value);
     if (document.querySelector('input[name="telegram_enabled"]').checked) fd.append('telegram_enabled', 'on');
     if (document.querySelector('input[name="notify_first_scan"]').checked) fd.append('notify_first_scan', 'on');
+    fd.append('test_message', $('f-test-msg').value);
     fd.append('ajax', '1');
     return fd;
   }
@@ -1258,7 +1272,7 @@ PANEL_HTML = """<!doctype html>
     }
     feedback('Wykonywanie…', 'info');
     try {
-      const r = await fetch(url, { method: 'POST' });
+      const r = await fetch(url, { method: 'POST', body: formPayload() });
       const d = await r.json();
       feedback(d.message, d.ok ? 'ok' : 'err');
     } catch (e) {
@@ -1317,6 +1331,7 @@ def save():
     cfg["max_pages"] = to_int(request.form.get("max_pages"), 2, 1, 10)
     cfg["telegram_enabled"] = request.form.get("telegram_enabled") == "on"
     cfg["notify_first_scan"] = request.form.get("notify_first_scan") == "on"
+    cfg["test_message"] = request.form.get("test_message", "").strip()
 
     ok = save_config(cfg)
     if ok:
@@ -1348,14 +1363,20 @@ def test_telegram():
             message="Uzupełnij Token bota i Chat ID, zapisz konfigurację "
                     "i wyślij /start do swojego bota w Telegramie.",
         )
+    custom = (request.form.get("test_message") or cfg.get("test_message") or "").strip()
     try:
-        send_telegram_message(
-            cfg,
-            "✅ <b>OLX Monitor — test powiadomień</b>\n"
-            "━━━━━━━━━━━━━━━━\n\n"
-            "Połączenie z Telegramem działa poprawnie.\n"
-            "Nowe oferty będą przychodzić ze zdjęciem i szczegółami.",
-        )
+        if custom:
+            if len(custom) > 4096:
+                custom = custom[:4093] + "…"
+            send_telegram_message(cfg, custom, parse_mode=None)
+        else:
+            send_telegram_message(
+                cfg,
+                "✅ <b>OLX Monitor — test powiadomień</b>\n"
+                "━━━━━━━━━━━━━━━━\n\n"
+                "Połączenie z Telegramem działa poprawnie.\n"
+                "Nowe oferty będą przychodzić ze zdjęciem i szczegółami.",
+            )
         log.info("Testowa wiadomość Telegram wysłana pomyślnie.")
         return jsonify(ok=True, message="Wiadomość testowa wysłana. Sprawdź Telegram.")
     except Exception as exc:
