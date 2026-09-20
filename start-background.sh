@@ -26,8 +26,9 @@ source venv/bin/activate
 echo "Instalowanie / aktualizowanie zależności..."
 pip install -r requirements.txt --quiet --disable-pip-version-check
 
-nohup python app.py > /dev/null 2>&1 &
+nohup python app.py </dev/null > /dev/null 2>&1 &
 echo $! > bot.pid
+disown 2>/dev/null || true
 sleep 3
 
 if kill -0 "$(cat bot.pid)" 2>/dev/null; then

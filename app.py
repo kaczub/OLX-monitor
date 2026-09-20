@@ -1096,7 +1096,7 @@ PANEL_HTML = """<!doctype html>
     tg.textContent = d.telegram_configured ? 'Skonfigurowany' : 'Brak danych';
     tg.className = 'badge ' + (d.telegram_configured ? 'ok' : 'off');
 
-    const text = d.logs.join('\n');
+    const text = d.logs.join('\\n');
     if (text !== lastLogs) {
       lastLogs = text;
       renderLogs(d.logs);
@@ -1272,6 +1272,13 @@ def api_status():
 def favicon():
     """Pusty favicon (unikanie wpisów 404 w logu)."""
     return "", 204
+
+
+@app.after_request
+def no_cache(response):
+    """Panel jest lokalny i dynamiczny - przeglądarka nie ma trzymać starych wersji."""
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # ---------------------------------------------------------------------------
