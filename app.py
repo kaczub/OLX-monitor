@@ -8,8 +8,8 @@ ogloszenia i wysyla powiadomienia przez Telegram.
 Funkcje:
 - Skanowanie OLX z uzyciem curl_cffi (impersonate="chrome120"),
   co pozwala uniknac blokad Cloudflare.
-- Panel administracyjny (Flask + Bootstrap, ciemny motyw) pod adresem
-  http://127.0.0.1:5000
+- Nowoczesny panel administracyjny (Modern Dark / Glassmorphism)
+  pod adresem http://127.0.0.1:5000
 - Losowe interwaly miedzy skanowaniami (domyslnie 150-300 s).
 - Historia widzianych ofert w pliku seen_offers.json (bez duplikatow).
 - Konfiguracja zapisywana w pliku config.json.
@@ -83,8 +83,9 @@ STATUS = {
     "last_error": None,
 }
 
-STOP_EVENT = threading.Event()     # sygnal zatrzymania watku skanera
-SCAN_NOW_EVENT = threading.Event() # sygnal natychmiastowego skanu
+STOP_EVENT = threading.Event()      # sygnal zatrzymania watku skanera
+SCAN_NOW_EVENT = threading.Event()  # sygnal natychmiastowego skanu
+SCANNER_ALIVE = threading.Event()   # informacja, czy skaner pracuje
 CONFIG_LOCK = threading.Lock()
 STATUS_LOCK = threading.Lock()
 
@@ -484,23 +485,28 @@ class ScannerThread(threading.Thread):
         super().__init__(daemon=True, name="olx-scanner")
 
     def run(self):
+        SCANNER_ALIVE.set()
         log.info("Skaner uruchomiony.")
-        while not STOP_EVENT.is_set():
-            cfg = load_config()
-            if not cfg.get("urls"):
-                log.info("Brak adresow URL w konfiguracji. Oczekiwanie 60 s...")
-                deadline = time.time() + 60
-                while time.time() < deadline and not STOP_EVENT.is_set():
-                    if SCAN_NOW_EVENT.is_set():
-                        SCAN_NOW_EVENT.clear()
-                        break
-                    STOP_EVENT.wait(5)
-                continue
-            try:
-                self.scan_once(cfg)
-            except Exception:
-                log.exception("Nieoczekiwany blad podczas skanowania.")
-            self._sleep_with_abort(cfg)
+        try:
+            while not STOP_EVENT.is_set():
+                cfg = load_config()
+                if not cfg.get("urls"):
+                    log.info("Brak adresow URL w konfiguracji. Oczekiwanie 60 s...")
+                    deadline = time.time() + 60
+                    while time.time() < deadline and not STOP_EVENT.is_set():
+                        if SCAN_NOW_EVENT.is_set():
+                            SCAN_NOW_EVENT.clear()
+                            break
+                        STOP_EVENT.wait(5)
+                    continue
+                try:
+                    self.scan_once(cfg)
+                except Exception:
+                    log.exception("Nieoczekiwany blad podczas skanowania.")
+                self._sleep_with_abort(cfg)
+        finally:
+            SCANNER_ALIVE.clear()
+            log.info("Skaner zatrzymany.")
 
     def _sleep_with_abort(self, cfg):
         """Uspia watek na losowy czas, reagujac na zmiane konfiguracji."""
@@ -603,156 +609,352 @@ class ScannerThread(threading.Thread):
 
 
 # ---------------------------------------------------------------------------
-# Panel WWW (Flask)
+# Panel WWW (Flask) - Modern Dark / Glassmorphism
 # ---------------------------------------------------------------------------
 
 app = Flask(__name__)
 
 PANEL_HTML = """<!doctype html>
-<html lang="pl" data-bs-theme="dark">
+<html lang="pl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OLX Monitor Bot - Panel</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<title>OLX Monitor Bot</title>
 <style>
-  body { background-color: #11141b; }
-  .card { background-color: #1a1f2b; border: 1px solid #2a3040; }
-  .form-control, .form-select { background-color: #12161f; border-color: #2a3040; color: #e6e6e6; }
-  #log-box { background-color: #0c0f15; color: #9fe8a0; font-size: 0.78rem;
-             height: 320px; overflow-y: auto; padding: 10px; border-radius: 6px; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  h1 .badge { font-size: 0.9rem; vertical-align: middle; }
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --emerald: #10b981;
+    --cyan: #06b6d4;
+    --indigo: #6366f1;
+    --rose: #f43f5e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(900px 520px at 10% -12%, rgba(16,185,129,.14), transparent 60%),
+      radial-gradient(900px 520px at 90% -6%, rgba(99,102,241,.16), transparent 60%),
+      radial-gradient(760px 520px at 50% 112%, rgba(6,182,212,.10), transparent 60%);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1240px; margin: 0 auto; padding: 28px 20px 44px; }
+
+  /* Naglowek */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center;
+    background: linear-gradient(135deg, rgba(16,185,129,.95), rgba(6,182,212,.85));
+    box-shadow: 0 10px 26px -8px rgba(16,185,129,.55);
+  }
+  .logo svg { width: 24px; height: 24px; }
+  .brand h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  .brand p { margin: 3px 0 0; font-size: 12.5px; color: var(--muted); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 9px; padding: 9px 15px;
+    border-radius: 999px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--border); background: rgba(30,41,59,.72);
+    backdrop-filter: blur(10px); transition: color .2s, border-color .2s;
+  }
+  .pill .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .pill.emerald { color: #6ee7b7; border-color: rgba(16,185,129,.45); }
+  .pill.emerald .dot { background: #10b981; box-shadow: 0 0 0 4px rgba(16,185,129,.16); }
+  .pill.cyan { color: #67e8f9; border-color: rgba(6,182,212,.5); }
+  .pill.cyan .dot { background: #06b6d4; animation: pulse 1.15s ease-in-out infinite; }
+  .pill.rose { color: #fda4af; border-color: rgba(244,63,94,.5); }
+  .pill.rose .dot { background: #f43f5e; box-shadow: 0 0 0 4px rgba(244,63,94,.16); }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .35; transform: scale(.7); }
+  }
+
+  /* Uklad */
+  .grid {
+    display: grid; gap: 20px; align-items: start;
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr);
+  }
+  @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: rgba(30,41,59,.72);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 18px 44px -26px rgba(0,0,0,.95);
+    overflow: hidden;
+  }
+  .card + .card { margin-top: 20px; }
+  .card-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .card-head h2 {
+    margin: 0; font-size: 13.5px; letter-spacing: .8px;
+    text-transform: uppercase; color: #cbd5e1; font-weight: 700;
+  }
+  .card-body { padding: 20px; }
+
+  /* Formularz */
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  .label {
+    display: block; font-size: 12.5px; font-weight: 600;
+    color: var(--muted); margin-bottom: 7px; letter-spacing: .2px;
+  }
+  .input, .select, .textarea {
+    width: 100%; padding: 11px 13px; border-radius: 10px;
+    background: #0f172a; color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 13.5px; font-family: inherit; outline: none;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  .textarea { resize: vertical; min-height: 138px; line-height: 1.5; }
+  .input:focus, .select:focus, .textarea:focus {
+    border-color: var(--emerald);
+    box-shadow: 0 0 0 3px rgba(16,185,129,.18);
+    background: #0b1220;
+  }
+  .mono { font-family: "JetBrains Mono", Consolas, "SF Mono", Menlo, monospace; }
+  .hint { margin-top: 6px; font-size: 11.5px; color: #64748b; }
+  .row { display: grid; gap: 16px; }
+  .row-2 { grid-template-columns: 1fr 1fr; }
+  .row-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 620px) { .row-2, .row-3 { grid-template-columns: 1fr; } }
+
+  .check {
+    display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: rgba(15,23,42,.6); margin-bottom: 10px; cursor: pointer;
+  }
+  .check:last-of-type { margin-bottom: 0; }
+  .check input { width: 17px; height: 17px; margin-top: 1px; accent-color: var(--emerald); cursor: pointer; }
+  .check span { font-size: 13px; color: #cbd5e1; }
+
+  /* Przyciski */
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+  .btn {
+    border: none; border-radius: 10px; padding: 11px 18px;
+    font-size: 13.5px; font-weight: 600; color: #fff; cursor: pointer;
+    font-family: inherit; transition: transform .12s, box-shadow .15s, filter .15s;
+  }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.07); }
+  .btn:active { transform: translateY(0); }
+  .btn-cyan { background: linear-gradient(135deg, #06b6d4, #0891b2); box-shadow: 0 10px 24px -12px rgba(6,182,212,.9); }
+  .btn-indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 10px 24px -12px rgba(99,102,241,.9); }
+  .btn-emerald { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 10px 24px -12px rgba(16,185,129,.9); }
+
+  .feedback {
+    margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+    font-size: 13px; display: none; border: 1px solid transparent;
+  }
+  .feedback.show { display: block; }
+  .feedback.ok { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.4); color: #6ee7b7; }
+  .feedback.err { background: rgba(244,63,94,.12); border-color: rgba(244,63,94,.4); color: #fda4af; }
+  .feedback.info { background: rgba(6,182,212,.12); border-color: rgba(6,182,212,.4); color: #67e8f9; }
+
+  /* Status */
+  .stats { display: flex; flex-direction: column; }
+  .stat {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 0; border-bottom: 1px dashed rgba(51,65,85,.75); font-size: 13px;
+  }
+  .stat:last-child { border-bottom: none; }
+  .stat .k { color: var(--muted); }
+  .stat .v { font-weight: 600; text-align: right; }
+  .stat .v.muted { color: #64748b; font-weight: 500; }
+  .stat .v.warn { color: #fcd34d; font-weight: 500; }
+  .badge {
+    font-size: 11.5px; font-weight: 700; padding: 4px 10px;
+    border-radius: 999px; letter-spacing: .3px;
+  }
+  .badge.ok { background: rgba(16,185,129,.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,.4); }
+  .badge.off { background: rgba(148,163,184,.12); color: #cbd5e1; border: 1px solid rgba(148,163,184,.3); }
+
+  /* Terminal logow */
+  .terminal {
+    background: #0b1120; border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; height: 340px; overflow-y: auto;
+    font-family: "JetBrains Mono", Consolas, "SF Mono", Menlo, monospace;
+    font-size: 12px; line-height: 1.7;
+  }
+  .terminal .ln { white-space: pre-wrap; word-break: break-word; color: #94a3b8; }
+  .terminal .ln.ok { color: #6ee7b7; }
+  .terminal .ln.warn { color: #fcd34d; }
+  .terminal .ln.error { color: #fda4af; }
+  .terminal::-webkit-scrollbar { width: 9px; }
+  .terminal::-webkit-scrollbar-thumb { background: #334155; border-radius: 6px; }
+  .terminal::-webkit-scrollbar-track { background: transparent; }
+
+  .live { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: #64748b; text-transform: none; letter-spacing: 0; }
+  .live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); animation: pulse 1.6s infinite; }
+
+  footer { margin-top: 22px; font-size: 12px; color: #64748b; }
+  footer code { color: #94a3b8; }
 </style>
 </head>
 <body>
-<div class="container py-4">
+<div class="page">
 
-  <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-    <h1 class="mb-0">OLX Monitor Bot <span id="st-scanning" class="badge bg-secondary ms-1">-</span></h1>
-    <span class="text-secondary small">Panel dziala lokalnie - nie zamykaj okna aplikacji</span>
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0b1220" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle>
+          <circle cx="12" cy="12" r="4.4"></circle>
+          <path d="M12 12 19 5"></path>
+        </svg>
+      </div>
+      <div>
+        <h1>OLX Monitor Bot</h1>
+        <p>Panel dziala lokalnie (127.0.0.1) &middot; nie zamykaj tego okna</p>
+      </div>
+    </div>
+    <div class="pill emerald" id="status-pill">
+      <span class="dot"></span><span id="status-text">Oczekuje</span>
+    </div>
   </div>
 
-  {% if saved %}
-  <div class="alert alert-success alert-dismissible fade show" role="alert">
-    Konfiguracja zostala zapisana.
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-  </div>
-  {% endif %}
+  <div class="grid">
 
-  <div class="row g-4">
-    <div class="col-lg-7">
-      <div class="card shadow-sm">
-        <div class="card-header fw-semibold">Konfiguracja</div>
+    <!-- LEWA KOLUMNA: KONFIGURACJA -->
+    <section>
+      <div class="card">
+        <div class="card-head"><h2>Konfiguracja</h2></div>
         <div class="card-body">
           <form method="post" action="/save">
-            <div class="row g-3">
-              <div class="col-md-8">
-                <label class="form-label">Token bota Telegram</label>
-                <input type="text" class="form-control mono" name="telegram_bot_token"
+            <div class="row row-2">
+              <div class="field">
+                <label class="label" for="f-token">Token bota Telegram</label>
+                <input id="f-token" class="input mono" type="text" name="telegram_bot_token"
                        value="{{ cfg.telegram_bot_token }}" placeholder="123456789:AAF...">
               </div>
-              <div class="col-md-4">
-                <label class="form-label">Chat ID</label>
-                <input type="text" class="form-control mono" name="telegram_chat_id"
+              <div class="field">
+                <label class="label" for="f-chat">Chat ID</label>
+                <input id="f-chat" class="input mono" type="text" name="telegram_chat_id"
                        value="{{ cfg.telegram_chat_id }}" placeholder="123456789">
               </div>
-              <div class="col-12">
-                <label class="form-label">Adresy URL z OLX (jeden na linie)</label>
-                <textarea class="form-control mono" name="urls" rows="5"
-                          placeholder="https://www.olx.pl/elektronika/q-iphone/?search%5Border%5D=created_at%3Adesc">{{ cfg.urls | join('\n') }}</textarea>
-                <div class="form-text">Wklej linki skopiowane z OLX wraz z ustawionymi filtrami (cena, promien, sortowanie).</div>
+            </div>
+
+            <div class="field">
+              <label class="label" for="f-urls">Adresy URL z OLX (jeden na linie)</label>
+              <textarea id="f-urls" class="textarea mono" name="urls"
+                        placeholder="https://www.olx.pl/elektronika/q-iphone/?search%5Border%5D=created_at%3Adesc">{{ cfg.urls | join('\n') }}</textarea>
+              <div class="hint">Wklej linki skopiowane z OLX wraz z filtrami (cena, promien, sortowanie od najnowszych).</div>
+            </div>
+
+            <div class="row row-2">
+              <div class="field">
+                <label class="label" for="f-keywords">Slowa kluczowe (opcjonalnie, po przecinku)</label>
+                <input id="f-keywords" class="input" type="text" name="keywords"
+                       value="{{ cfg.keywords }}" placeholder="np. iphone, nieuszkodzony">
               </div>
-              <div class="col-md-6">
-                <label class="form-label">Slowa kluczowe (opcjonalnie, po przecinku)</label>
-                <input type="text" class="form-control" name="keywords" value="{{ cfg.keywords }}"
-                       placeholder="np. iphone, nieuszkodzony">
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Tryb filtra slow kluczowych</label>
-                <select class="form-select" name="keyword_mode">
+              <div class="field">
+                <label class="label" for="f-mode">Tryb filtra slow kluczowych</label>
+                <select id="f-mode" class="select" name="keyword_mode">
                   <option value="off" {% if cfg.keyword_mode == 'off' %}selected{% endif %}>Wylaczony</option>
-                  <option value="include" {% if cfg.keyword_mode == 'include' %}selected{% endif %}>Tylko jesli tytul zawiera ktorekolwiek slowo</option>
-                  <option value="exclude" {% if cfg.keyword_mode == 'exclude' %}selected{% endif %}>Pomin, jesli tytul zawiera ktorekolwiek slowo</option>
+                  <option value="include" {% if cfg.keyword_mode == 'include' %}selected{% endif %}>Zawiera (tylko oferty z tym slowem)</option>
+                  <option value="exclude" {% if cfg.keyword_mode == 'exclude' %}selected{% endif %}>Nie zawiera (pomija oferty z tym slowem)</option>
                 </select>
               </div>
-              <div class="col-md-4">
-                <label class="form-label">Min. interwal skanowania (s)</label>
-                <input type="number" class="form-control" name="min_interval" min="30"
+            </div>
+
+            <div class="row row-3">
+              <div class="field">
+                <label class="label" for="f-min">Min. interwal (s)</label>
+                <input id="f-min" class="input" type="number" name="min_interval" min="30"
                        value="{{ cfg.min_interval }}">
               </div>
-              <div class="col-md-4">
-                <label class="form-label">Maks. interwal skanowania (s)</label>
-                <input type="number" class="form-control" name="max_interval" min="30"
+              <div class="field">
+                <label class="label" for="f-max">Maks. interwal (s)</label>
+                <input id="f-max" class="input" type="number" name="max_interval" min="30"
                        value="{{ cfg.max_interval }}">
               </div>
-              <div class="col-md-4">
-                <label class="form-label">Liczba stron do sprawdzenia</label>
-                <input type="number" class="form-control" name="max_pages" min="1" max="10"
+              <div class="field">
+                <label class="label" for="f-pages">Liczba stron</label>
+                <input id="f-pages" class="input" type="number" name="max_pages" min="1" max="10"
                        value="{{ cfg.max_pages }}">
               </div>
-              <div class="col-12">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" name="telegram_enabled" id="chk-tg"
-                         {% if cfg.telegram_enabled %}checked{% endif %}>
-                  <label class="form-check-label" for="chk-tg">Wysylaj powiadomienia Telegram</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" name="notify_first_scan" id="chk-first"
-                         {% if cfg.notify_first_scan %}checked{% endif %}>
-                  <label class="form-check-label" for="chk-first">Powiadamiaj o wszystkich ofertach z pierwszego skanu nowego adresu URL</label>
-                </div>
-              </div>
-              <div class="col-12 d-flex flex-wrap gap-2">
-                <button type="submit" class="btn btn-primary">Zapisz konfiguracje</button>
-                <button type="button" class="btn btn-outline-info" onclick="postAction('/test')">Test wiadomosci Telegram</button>
-                <button type="button" class="btn btn-success" onclick="postAction('/scan_now')">Skanuj teraz</button>
-              </div>
-              <div class="col-12">
-                <div id="action-feedback" class="alert d-none mb-0"></div>
-              </div>
             </div>
+
+            <div class="field">
+              <label class="check">
+                <input type="checkbox" name="telegram_enabled" {% if cfg.telegram_enabled %}checked{% endif %}>
+                <span>Wysylaj powiadomienia Telegram</span>
+              </label>
+              <label class="check">
+                <input type="checkbox" name="notify_first_scan" {% if cfg.notify_first_scan %}checked{% endif %}>
+                <span>Powiadamiaj o wszystkich ofertach z pierwszego skanu</span>
+              </label>
+            </div>
+
+            <div class="actions">
+              <button type="submit" class="btn btn-cyan">Zapisz konfiguracje</button>
+              <button type="button" class="btn btn-indigo" onclick="postAction('/test')">Test wiadomosci Telegram</button>
+              <button type="button" class="btn btn-emerald" onclick="postAction('/scan_now')">Skanuj teraz</button>
+            </div>
+
+            <div id="action-feedback" class="feedback"></div>
           </form>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="col-lg-5">
-      <div class="card shadow-sm mb-4">
-        <div class="card-header fw-semibold">Status</div>
+    <!-- PRAWA KOLUMNA: STATUS I LOGI -->
+    <section>
+      <div class="card">
+        <div class="card-head"><h2>Status</h2></div>
         <div class="card-body">
-          <table class="table table-sm table-borderless mb-0 align-middle">
-            <tbody>
-              <tr><td class="text-secondary">Ostatni skan</td><td class="text-end" id="st-last-scan">-</td></tr>
-              <tr><td class="text-secondary">Nowe oferty w ostatnim skanie</td><td class="text-end" id="st-last-found">-</td></tr>
-              <tr><td class="text-secondary">Nastepny skan za</td><td class="text-end mono" id="st-next">-</td></tr>
-              <tr><td class="text-secondary">Zapamietane oferty</td><td class="text-end" id="st-seen">-</td></tr>
-              <tr><td class="text-secondary">Wyslane powiadomienia</td><td class="text-end" id="st-sent">-</td></tr>
-              <tr><td class="text-secondary">Adresy URL</td><td class="text-end" id="st-urls">-</td></tr>
-              <tr><td class="text-secondary">Telegram</td><td class="text-end"><span id="st-tg" class="badge bg-secondary">-</span></td></tr>
-              <tr><td class="text-secondary">Czas dzialania</td><td class="text-end mono" id="st-uptime">-</td></tr>
-              <tr><td class="text-secondary">Ostatni blad</td><td class="text-end text-warning" id="st-error">-</td></tr>
-            </tbody>
-          </table>
+          <div class="stats">
+            <div class="stat"><span class="k">Ostatni skan</span><span class="v muted" id="st-last-scan">-</span></div>
+            <div class="stat"><span class="k">Nowe oferty w ostatnim skanie</span><span class="v" id="st-last-found">-</span></div>
+            <div class="stat"><span class="k">Nastepny skan za</span><span class="v mono" id="st-next">-</span></div>
+            <div class="stat"><span class="k">Zapamietane oferty</span><span class="v" id="st-seen">-</span></div>
+            <div class="stat"><span class="k">Wyslane powiadomienia</span><span class="v" id="st-sent">-</span></div>
+            <div class="stat"><span class="k">Liczba adresow URL</span><span class="v" id="st-urls">-</span></div>
+            <div class="stat"><span class="k">Status Telegrama</span><span class="v"><span id="st-tg" class="badge off">-</span></span></div>
+            <div class="stat"><span class="k">Czas dzialania</span><span class="v mono" id="st-uptime">-</span></div>
+            <div class="stat"><span class="k">Ostatni blad</span><span class="v muted" id="st-error">-</span></div>
+          </div>
         </div>
       </div>
-      <div class="card shadow-sm">
-        <div class="card-header fw-semibold">Dziennik zdarzen (log)</div>
-        <div class="card-body p-2">
-          <pre id="log-box" class="mono mb-0">Ladowanie logu...</pre>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Dziennik zdarzen</h2>
+          <span class="live"><span class="dot"></span>na zywo</span>
+        </div>
+        <div class="card-body">
+          <div id="log-box" class="terminal">Ladowanie logu...</div>
         </div>
       </div>
-    </div>
+    </section>
+
   </div>
 
-  <p class="text-secondary small mt-4 mb-0">
-    Historia ofert: seen_offers.json &middot; Konfiguracja: config.json &middot; Log: bot.log
-  </p>
+  <footer>
+    Historia ofert: <code>seen_offers.json</code> &middot;
+    Konfiguracja: <code>config.json</code> &middot;
+    Log: <code>bot.log</code>
+  </footer>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   const $ = (id) => document.getElementById(id);
+  const SAVED = {{ 'true' if saved else 'false' }};
 
   function fmtSecs(s) {
     if (s === null || s === undefined) return '-';
@@ -765,12 +967,43 @@ PANEL_HTML = """<!doctype html>
     return h > 0 ? h + ':' + mm + ':' + ss : m + ':' + ss;
   }
 
+  function setStatus(d) {
+    const pill = $('status-pill');
+    const text = $('status-text');
+    let cls = 'emerald';
+    let label = 'Oczekuje';
+    if (!d.scanner_running) {
+      cls = 'rose';
+      label = 'Zatrzymany';
+    } else if (d.scanning_now) {
+      cls = 'cyan';
+      label = 'Skanowanie...';
+    }
+    pill.className = 'pill ' + cls;
+    text.textContent = label;
+  }
+
+  function renderLogs(lines) {
+    const box = $('log-box');
+    const nearBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 48;
+    box.innerHTML = '';
+    lines.forEach(function (line) {
+      const el = document.createElement('div');
+      el.className = 'ln';
+      if (line.indexOf('| ERROR |') !== -1) el.classList.add('error');
+      else if (line.indexOf('| WARNING |') !== -1) el.classList.add('warn');
+      else if (line.indexOf('| INFO |') !== -1) el.classList.add('ok');
+      el.textContent = line;
+      box.appendChild(el);
+    });
+    if (nearBottom) box.scrollTop = box.scrollHeight;
+  }
+
   async function refresh() {
     try {
       const r = await fetch('/api/status');
       const d = await r.json();
-      $('st-scanning').textContent = d.scanning_now ? 'Skanuje...' : 'Oczekuje';
-      $('st-scanning').className = 'badge ms-1 ' + (d.scanning_now ? 'bg-warning text-dark' : 'bg-success');
+      setStatus(d);
       $('st-last-scan').textContent = d.last_scan || 'jeszcze nie bylo';
       $('st-last-found').textContent = d.last_scan_found;
       $('st-next').textContent = fmtSecs(d.next_scan_in);
@@ -781,26 +1014,29 @@ PANEL_HTML = """<!doctype html>
       $('st-error').textContent = d.last_error || 'brak';
       const tg = $('st-tg');
       tg.textContent = d.telegram_configured ? 'Skonfigurowany' : 'Brak danych';
-      tg.className = 'badge ' + (d.telegram_configured ? 'bg-success' : 'bg-secondary');
-      $('log-box').textContent = d.logs.join('\\n');
-      $('log-box').scrollTop = $('log-box').scrollHeight;
+      tg.className = 'badge ' + (d.telegram_configured ? 'ok' : 'off');
+      renderLogs(d.logs);
     } catch (e) { /* serwer chwilowo niedostepny */ }
   }
 
-  async function postAction(url) {
+  function feedback(message, kind) {
     const box = $('action-feedback');
-    box.className = 'alert alert-info mb-0';
-    box.textContent = 'Wykonywanie...';
+    box.className = 'feedback show ' + kind;
+    box.textContent = message;
+  }
+
+  async function postAction(url) {
+    feedback('Wykonywanie...', 'info');
     try {
       const r = await fetch(url, { method: 'POST' });
       const d = await r.json();
-      box.className = 'alert mb-0 ' + (d.ok ? 'alert-success' : 'alert-danger');
-      box.textContent = d.message;
+      feedback(d.message, d.ok ? 'ok' : 'err');
     } catch (e) {
-      box.className = 'alert alert-danger mb-0';
-      box.textContent = 'Blad polaczenia z serwerem.';
+      feedback('Blad polaczenia z serwerem.', 'err');
     }
   }
+
+  if (SAVED) feedback('Konfiguracja zostala zapisana.', 'ok');
 
   setInterval(refresh, 5000);
   refresh();
@@ -899,6 +1135,7 @@ def api_status():
     with STATUS_LOCK:
         status = dict(STATUS)
     return jsonify(
+        scanner_running=SCANNER_ALIVE.is_set(),
         scanning_now=status["scanning_now"],
         last_scan=status["last_scan"],
         last_scan_found=status["last_scan_found"],
